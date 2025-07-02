@@ -24,6 +24,7 @@ export class MainScreen extends Container {
   public playerShip: PlayerShip;
   public enemyAttackController: EnemyAttackController;
   public stats: Stats;
+  // Todo: Clean up
   constructor() {
     super();
     TexturePool.textureOptions.scaleMode = "nearest"; // Set the scale mode to nearest for pixel art
