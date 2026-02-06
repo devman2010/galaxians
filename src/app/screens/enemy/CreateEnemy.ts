@@ -7,6 +7,7 @@ export class CreateEnemy {
     const sheet = Assets.get("main/spritesheets/galaxians-spritesheet.json");
     const textureId = sheet.animations[enemyTypeToTexture[enemyType]];
 
+
     const enemy = new EnemyAnimatedSprite(textureId, enemyType);
     return enemy;
   }
