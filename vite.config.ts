@@ -4,6 +4,7 @@ import { assetpackPlugin } from "./scripts/assetpack-vite-plugin";
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: "/galaxians/",
   plugins: [assetpackPlugin()],
   server: {
     host: "localhost",
