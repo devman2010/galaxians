@@ -8,7 +8,7 @@
     "build": "npm run lint && tsc && vite build",
     "build-dirty": "tsc --noCheck && vite build",
     "lint": "eslint .",
-    "dev": "vite --host 192.168.68.102 --port 8080"
+    "dev": "vite --host localhost --port 8080"
   },
   "dependencies": {
     "@esotericsoftware/spine-pixi-v8": "^4.2.82",
