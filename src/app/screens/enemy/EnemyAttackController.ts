@@ -1,4 +1,3 @@
-import { Vector2 } from "@esotericsoftware/spine-pixi-v8";
 import { PlayerShip } from "../player/PlayerShip";
 import { CreateEnemySpriteArc } from "./CreateEnemySpriteMovements";
 import { EnemyAnimatedSprite } from "./EnemyAnimatedSprite";
@@ -51,7 +50,9 @@ export class EnemyAttackController {
       );
 
       if (firstSortedColumn.length > 0) {
-        result = firstSortedColumn.sort((a, b) => a.row - b.row).slice(0, total);
+        result = firstSortedColumn
+          .sort((a, b) => a.row - b.row)
+          .slice(0, total);
       }
     }
     return result;
@@ -94,10 +95,16 @@ export class EnemyAttackController {
           this.enemyAttackArc.push({
             enemyAnimatedSprite: enemy,
             enemySpriteArc: (() => {
-              const arc = new CreateEnemySpriteArc(enemy, 1, 1, 1, enemy.leftSide);
+              const arc = new CreateEnemySpriteArc(
+                enemy,
+                1,
+                1,
+                1,
+                enemy.leftSide
+              );
               arc.startAnimation();
               return arc;
-            })(),
+            })()
           });
         }
       }
@@ -110,9 +117,11 @@ export class EnemyAttackController {
         enemyArc.enemySpriteArc.update(deltaTime);
         if (
           enemyArc.enemySpriteArc.isAnimationEnded() &&
-          enemyArc.enemyAnimatedSprite.enemyState === ENEMY_STATE.ALIVE_IDLE_TO_ATTACK_LOOP_PATH
+          enemyArc.enemyAnimatedSprite.enemyState ===
+            ENEMY_STATE.ALIVE_IDLE_TO_ATTACK_LOOP_PATH
         ) {
-          enemyArc.enemyAnimatedSprite.enemyState = ENEMY_STATE.BEGIN_ATTACK_SWARM;
+          enemyArc.enemyAnimatedSprite.enemyState =
+            ENEMY_STATE.BEGIN_ATTACK_SWARM;
         }
       });
     }
@@ -120,7 +129,7 @@ export class EnemyAttackController {
     this.enemyAttackArc = this.enemyAttackArc.filter(
       (enemyArc) => !enemyArc.enemySpriteArc.isAnimationEnded()
     );
-  } 
+  }
 
   private updateSwarmTracker(deltaTime: number): void {
     if (this.enemySwarmTracker.size > 0) {
@@ -130,9 +139,15 @@ export class EnemyAttackController {
             this.attackSwarm.push(
               (() => {
                 const enemyStartPos: Vector2 = {
-                  x: enemy.x, y: enemy.y
+                  x: enemy.x,
+                  y: enemy.y
                 };
-                const newAttack = new EnemySwarmPlayer(AlienType.Blue, enemyStartPos, enemy, 1);
+                const newAttack = new EnemySwarmPlayer(
+                  AlienType.Blue,
+                  enemyStartPos,
+                  enemy,
+                  1
+                );
                 newAttack.startSwarm();
                 return newAttack;
               })()
@@ -157,9 +172,11 @@ export class EnemyAttackController {
 
           case ENEMY_STATE.END_ATTACK_SWARM:
             this.enemySwarmTracker.removeEnemy(enemy);
-            this.attackSwarm = this.attackSwarm.filter( (thisEnemy)=> thisEnemy === enemy);
+            this.attackSwarm = this.attackSwarm.filter(
+              (thisEnemy) => thisEnemy.getSprite() !== enemy
+            );
             enemy.destroy();
-            console.log("Removing Enemy!")
+            console.log("Removing Enemy!");
             break;
 
           case ENEMY_STATE.DYING:

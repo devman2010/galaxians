@@ -40,7 +40,11 @@ export class EnemySwarmPlayer {
   ) {
     this.sprite = sprite;
     this.speed = speed;
+    this.type = type;
     this.positionOffset = 0;
+    this.pivotOrigin = startPos.x;
+    this.pivotAdd = 0;
+    this.targetingSlot = 0;
     this.isSwarming = false;
     this.isExited = false;
     this.position = { ...startPos };

@@ -53,12 +53,12 @@ export class CreationEngine extends Application {
     const allBundles = manifest.bundles.map((item: any) => item.name);
     // Start up background loading of all bundles
     Assets.backgroundLoadBundle(allBundles);
-    globalThis.__PIXI_APP__ = this;
+    (globalThis as any).__PIXI_APP__ = this;
   }
 
   public override destroy(
     rendererDestroyOptions: RendererDestroyOptions = false,
-    options: DestroyOptions = false,
+    options: DestroyOptions = false
   ): void {
     document.removeEventListener("visibilitychange", this.visibilityChange);
     super.destroy(rendererDestroyOptions, options);
