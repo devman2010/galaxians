@@ -196,10 +196,7 @@ export class MainScreen extends Container {
   public fireMissile(): void {
     const sprite = Sprite.from("playerMissle_0.png");
     sprite.anchor.set(0.5, 0.5);
-    // scale to approx 4x20 (original texture 1x3)
-    const scaleX = 4;
-    const scaleY = 20 / 3;
-    sprite.scale.set(scaleX, scaleY);
+    // use native sprite size (no scaling)
 
     // Position the missile over the top-middle of the player's ship
     const shipTop = this.playerShip.y - (this.playerShip.height / 2 || 8);
