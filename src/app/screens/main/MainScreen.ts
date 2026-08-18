@@ -235,7 +235,9 @@ export class MainScreen extends Container {
           /* ignore */
         }
         try {
-          onComplete && onComplete();
+          if (onComplete) {
+            onComplete();
+          }
         } catch {
           /* ignore */
         }
@@ -258,7 +260,9 @@ export class MainScreen extends Container {
           /* ignore */
         }
         try {
-          onComplete && onComplete();
+          if (onComplete) {
+            onComplete();
+          }
         } catch {
           /* ignore */
         }
