@@ -563,6 +563,33 @@ export class MainScreen extends Container {
         // older Safari fallback
         if ((m as any).addListener) (m as any).addListener(updateOverlay);
       }
+
+      const syncViewportForKeyboard = () => {
+        const vv = (window as any).visualViewport;
+        if (!vv) return;
+
+        const visibleHeight = Math.max(320, Math.round(vv.height));
+        const width = Math.max(320, Math.round(vv.width || window.innerWidth));
+
+        try {
+          engine().renderer.resize(width, visibleHeight);
+          engine().navigation.resize(width, visibleHeight);
+        } catch {
+          /* ignore */
+        }
+      };
+
+      if ((window as any).visualViewport) {
+        (window as any).visualViewport.addEventListener(
+          "resize",
+          syncViewportForKeyboard
+        );
+        (window as any).visualViewport.addEventListener(
+          "scroll",
+          syncViewportForKeyboard
+        );
+      }
+      syncViewportForKeyboard();
       updateOverlay();
     } catch {
       /* ignore */
