@@ -3,3 +3,10 @@ onlyBuiltDependencies:
   - cpu-features
   - esbuild
   - sharp
+
+allowBuilds:
+  "@ffmpeg-installer/linux-x64@4.1.0": true
+  "cpu-features@0.0.10": true
+  "esbuild@0.25.12": true
+  "sharp@0.33.5": true
+  "sharp@0.34.5": true
