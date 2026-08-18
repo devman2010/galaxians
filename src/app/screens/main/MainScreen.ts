@@ -1,4 +1,4 @@
-import { Ticker, Container, Graphics, AnimatedSprite, Assets } from "pixi.js";
+import { Ticker, Container, Graphics, AnimatedSprite, Assets, Sprite } from "pixi.js";
 import { engine } from "../../getEngine";
 import { PausePopup } from "../../popups/PausePopup";
 import { CreateEnemyWave, enemyMap } from "../enemy/CreateEnemyWave";
@@ -24,8 +24,8 @@ export class MainScreen extends Container {
   public playerShip: PlayerShip;
   public enemyAttackController: EnemyAttackController;
   public stats: Stats;
-  // Active player missiles (graphics + speed)
-  public playerMissiles: { gfx: Graphics; speed: number }[] = [];
+  // Active player missiles (sprite + speed)
+  public playerMissiles: { gfx: Sprite; speed: number }[] = [];
   // Active explosions (gfx, life elapsed, duration)
   public explosions: { gfx: Graphics; life: number; duration: number }[] = [];
   // Track space key to fire once per press
@@ -192,24 +192,22 @@ export class MainScreen extends Container {
     }
   }
 
-  // Create and fire a player missile (thin vertical yellow line)
+  // Create and fire a player missile (sprite from spritesheet)
   public fireMissile(): void {
-    const missileWidth = 4; // narrow
-    const missileHeight = 20; // tall
-    const gfx = new Graphics();
-    gfx.beginFill(0xffff00);
-    // drawRect centered
-    gfx.drawRect(-missileWidth / 2, -missileHeight / 2, missileWidth, missileHeight);
-    gfx.endFill();
+    const sprite = Sprite.from("playerMissle_0.png");
+    sprite.anchor.set(0.5, 0.5);
+    // scale to approx 4x20 (original texture 1x3)
+    const scaleX = 4;
+    const scaleY = 20 / 3;
+    sprite.scale.set(scaleX, scaleY);
 
     // Position the missile over the top-middle of the player's ship
     const shipTop = this.playerShip.y - (this.playerShip.height / 2 || 8);
-    gfx.x = this.playerShip.x;
-    gfx.y = shipTop - (missileHeight / 2);
+    sprite.x = this.playerShip.x;
+    sprite.y = shipTop - (sprite.height / 2);
 
-    this.mainContainer.addChild(gfx);
-    // speed in same unit style as other movement (tweak if needed)
-    this.playerMissiles.push({ gfx, speed: 4 });
+    this.mainContainer.addChild(sprite);
+    this.playerMissiles.push({ gfx: sprite, speed: 4 });
   }
 
   // Explosion helper (uses spritesheet animation)
