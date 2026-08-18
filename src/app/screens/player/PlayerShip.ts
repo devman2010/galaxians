@@ -6,7 +6,7 @@ export class PlayerShip extends Sprite {
   public shipYposition: number;
 
   constructor(shipXposition: number = 0, shipYposition = 0) {
-    super(Sprite.from("playerShip_0.png"));
+    super(Sprite.from("playerShip_0.png").texture);
     this.x = this.shipXposition = shipXposition;
     this.y = this.shipYposition = shipYposition;
     this.anchor.set(0.5, 0.5);

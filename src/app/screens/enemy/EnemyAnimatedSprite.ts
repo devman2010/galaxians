@@ -10,7 +10,7 @@ export class EnemyAnimatedSprite extends AnimatedSprite {
   public col: number;
   public enemyState: ENEMY_STATE = ENEMY_STATE.ALIVE_IDLE;
   constructor(textureId: any, enemyType: ENEMY_TYPE) {
-    super(new AnimatedSprite(textureId));
+    super(textureId);
     this.enemyType = enemyType;
     this.leftSide = false;
     this.row = 0;

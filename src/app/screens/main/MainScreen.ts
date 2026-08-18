@@ -456,21 +456,22 @@ export class MainScreen extends Container {
   }
 
   private getEnemyMissileSpeed(enemy: EnemyAnimatedSprite): number {
-    const baseSpeed = 2.2 + this.waveNumber * 0.18;
-    const midGameBoost = this.waveNumber >= 8 ? 0.8 : 0;
-    const wave16Spike = this.waveNumber >= 16 ? 1.2 : 0;
-    const wave30Spike = this.waveNumber >= 30 ? 2.0 : 0;
+    // Increase base speed and multipliers for a more aggressive feel
+    const baseSpeed = 3.0 + this.waveNumber * 0.25;
+    const midGameBoost = this.waveNumber >= 8 ? 1.2 : 0;
+    const wave16Spike = this.waveNumber >= 16 ? 2.0 : 0;
+    const wave30Spike = this.waveNumber >= 30 ? 3.0 : 0;
     const rankBoost =
-      enemy.enemyType === 4 || enemy.enemyType === 3 ? 0.6 : 0.1;
+      enemy.enemyType === 4 || enemy.enemyType === 3 ? 1.0 : 0.3;
     const desperation =
       this.enemyWave.filter(
         (candidate) => candidate.visible && candidate.parent
       ).length < 10
-        ? 0.5
+        ? 1.0
         : 0;
 
     return Math.min(
-      8.2,
+      12.0,
       baseSpeed +
         midGameBoost +
         wave16Spike +
@@ -744,9 +745,10 @@ export class MainScreen extends Container {
     if (this.enemyMissileSpawnTimer > 0) {
       const removeIndices: number[] = [];
       this.enemyMissiles.forEach((missile, idx) => {
-        missile.velocityY = Math.min(missile.velocityY + 0.05, 9.5);
-        missile.gfx.x += missile.velocityX * deltaTime * 0.09;
-        missile.gfx.y += missile.velocityY * deltaTime * 0.09;
+        // accelerate more aggressively and apply stronger per-frame scale
+        missile.velocityY = Math.min(missile.velocityY + 0.12, 14.0);
+        missile.gfx.x += missile.velocityX * deltaTime * 0.12;
+        missile.gfx.y += missile.velocityY * deltaTime * 0.12;
         if (missile.gfx.y > this.HEIGHT + 20) {
           if (missile.gfx.parent) {
             missile.gfx.parent.removeChild(missile.gfx);
