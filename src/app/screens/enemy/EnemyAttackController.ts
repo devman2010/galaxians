@@ -175,7 +175,18 @@ export class EnemyAttackController {
             this.attackSwarm = this.attackSwarm.filter(
               (thisEnemy) => thisEnemy.getSprite() !== enemy
             );
-            enemy.destroy();
+            try {
+              // avoid destroying shared textures — just stop and hide
+              enemy.stop();
+            } catch {
+              /* ignore */
+            }
+            try {
+              if (enemy.parent) enemy.parent.removeChild(enemy);
+            } catch {
+              /* ignore */
+            }
+            enemy.visible = false;
             console.log("Removing Enemy!");
             break;
 
@@ -215,4 +226,3 @@ export class EnemyAttackController {
     this.sideSwarm = this.sideSwarm.filter((e) => e !== enemy);
   }
 }
-

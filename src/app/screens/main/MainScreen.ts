@@ -340,7 +340,10 @@ export class MainScreen extends Container {
               /* ignore */
             }
             try {
-              enemy.destroy();
+              // Stop animation and hide the sprite instead of destroying textures
+              try { enemy.stop(); } catch { /* ignore */ }
+              try { if (enemy.parent) enemy.parent.removeChild(enemy); } catch { /* ignore */ }
+              enemy.visible = false;
             } catch {
               /* ignore */
             }
