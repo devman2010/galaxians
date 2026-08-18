@@ -215,7 +215,8 @@ export class MainScreen extends Container {
   }
 
   // Explosion helper (uses spritesheet animation)
-  public createExplosion(x: number, y: number): void {
+  // Create explosion at x,y. Optional callback called after explosion completes.
+  public createExplosion(x: number, y: number, onComplete?: () => void): void {
     try {
       const sheet: any = Assets.get(
         "main/spritesheets/galaxians-spritesheet.json"
@@ -230,6 +231,11 @@ export class MainScreen extends Container {
       anim.onComplete = () => {
         try {
           this.mainContainer.removeChild(anim);
+        } catch {
+          /* ignore */
+        }
+        try {
+          onComplete && onComplete();
         } catch {
           /* ignore */
         }
@@ -248,6 +254,11 @@ export class MainScreen extends Container {
       setTimeout(() => {
         try {
           this.mainContainer.removeChild(gfx);
+        } catch {
+          /* ignore */
+        }
+        try {
+          onComplete && onComplete();
         } catch {
           /* ignore */
         }
@@ -292,7 +303,11 @@ export class MainScreen extends Container {
       // Collision against enemies (allow hitting swarming ones too)
       for (const enemy of this.enemyWave) {
         // Skip if already dead or in dying state
-        if (enemy.enemyState === ENEMY_STATE.DEAD || enemy.enemyState === ENEMY_STATE.DYING) continue;
+        if (
+          enemy.enemyState === ENEMY_STATE.DEAD ||
+          enemy.enemyState === ENEMY_STATE.DYING
+        )
+          continue;
         const enemyBounds = enemy.getBounds();
         if (
           bounds.x + bounds.width > enemyBounds.x &&
@@ -311,10 +326,34 @@ export class MainScreen extends Container {
             /* ignore */
           }
 
-          // create explosion at enemy position
-          this.createExplosion(enemy.x, enemy.y);
+          // create explosion at enemy position and remove enemy after animation completes
+          this.createExplosion(enemy.x, enemy.y, () => {
+            try {
+              if (this.mainContainer.children.includes(enemy)) {
+                this.mainContainer.removeChild(enemy);
+              }
+            } catch {
+              /* ignore */
+            }
+            try {
+              enemy.destroy();
+            } catch {
+              /* ignore */
+            }
+            try {
+              enemy.enemyState = ENEMY_STATE.DEAD;
+            } catch {
+              /* ignore */
+            }
+            // notify enemy controller in case it's tracking this enemy
+            try {
+              this.enemyAttackController.notifyEnemyKilled(enemy);
+            } catch {
+              /* ignore */
+            }
+          });
 
-          // notify enemy controller (remove from swarm trackers etc.)
+          // notify enemy controller (remove from swarm trackers etc.) immediately so it doesn't continue updating
           try {
             this.enemyAttackController.notifyEnemyKilled(enemy);
           } catch {
@@ -322,7 +361,11 @@ export class MainScreen extends Container {
           }
 
           // remove missile
-          this.mainContainer.removeChild(m.gfx);
+          try {
+            this.mainContainer.removeChild(m.gfx);
+          } catch {
+            /* ignore */
+          }
           removeIndices.push(idx);
           break;
         }
