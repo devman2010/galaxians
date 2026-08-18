@@ -92,14 +92,14 @@ export class EnemySwarmPlayer {
         break;
 
       case PlanState.AttackingPlayer:
-        this.attackUpdate(deltaTime, shipPos);
+        this.attackUpdate(deltaTime);
         break;
 
       // ... other cases
     }
   }
 
-  attackUpdate(deltaTime: number, _shipPos: Vector2) {
+  attackUpdate(deltaTime: number) {
     this.updateInflight(deltaTime); // updates pivotAdd over time
 
     this.position.x = this.positionOffset + this.pivotOrigin;
@@ -156,7 +156,7 @@ export class EnemySwarmPlayer {
     return this.isExited;
   }
 
-  readToAttack(_shipPos: Vector2) {}
+  readToAttack() {}
   public getSprite(): PIXI.Sprite {
     return this.sprite;
   }

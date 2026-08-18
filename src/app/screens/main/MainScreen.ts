@@ -230,11 +230,13 @@ export class MainScreen extends Container {
       anim.onComplete = () => {
         try {
           this.mainContainer.removeChild(anim);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       };
       this.mainContainer.addChild(anim);
       anim.play();
-    } catch (err) {
+    } catch {
       // fallback to graphics explosion if assets not available
       const gfx = new Graphics();
       gfx.x = x;
@@ -246,7 +248,9 @@ export class MainScreen extends Container {
       setTimeout(() => {
         try {
           this.mainContainer.removeChild(gfx);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }, 400);
     }
   }
@@ -302,7 +306,9 @@ export class MainScreen extends Container {
               this.mainContainer.removeChild(enemy);
             }
             enemy.stop();
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // create explosion at enemy position
           this.createExplosion(enemy.x, enemy.y);
