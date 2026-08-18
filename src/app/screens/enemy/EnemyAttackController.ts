@@ -190,4 +190,29 @@ export class EnemyAttackController {
       });
     }
   }
+
+  // Notify controller that an enemy has been killed (e.g., by player missile)
+  public notifyEnemyKilled(enemy: EnemyAnimatedSprite): void {
+    try {
+      if (this.enemySwarmTracker.enemySet.has(enemy)) {
+        this.enemySwarmTracker.removeEnemy(enemy);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      this.attackSwarm.forEach((sw) => {
+        if (sw.getSprite() === enemy) {
+          sw.stopSwarm();
+          (sw as any).isExited = true;
+        }
+      });
+    } catch {
+      /* ignore */
+    }
+
+    this.sideSwarm = this.sideSwarm.filter((e) => e !== enemy);
+  }
 }
+

@@ -289,9 +289,10 @@ export class MainScreen extends Container {
         return;
       }
 
-      // Collision against alive enemies
+      // Collision against enemies (allow hitting swarming ones too)
       for (const enemy of this.enemyWave) {
-        if (enemy.enemyState !== ENEMY_STATE.ALIVE_IDLE) continue;
+        // Skip if already dead or in dying state
+        if (enemy.enemyState === ENEMY_STATE.DEAD || enemy.enemyState === ENEMY_STATE.DYING) continue;
         const enemyBounds = enemy.getBounds();
         if (
           bounds.x + bounds.width > enemyBounds.x &&
@@ -299,8 +300,8 @@ export class MainScreen extends Container {
           bounds.y < enemyBounds.y + enemyBounds.height &&
           bounds.y + bounds.height > enemyBounds.y
         ) {
-          // Hit: mark dead and remove from display
-          enemy.enemyState = ENEMY_STATE.DEAD;
+          // Hit: mark as dying and remove from display
+          enemy.enemyState = ENEMY_STATE.DYING;
           try {
             if (this.mainContainer.children.includes(enemy)) {
               this.mainContainer.removeChild(enemy);
@@ -312,6 +313,13 @@ export class MainScreen extends Container {
 
           // create explosion at enemy position
           this.createExplosion(enemy.x, enemy.y);
+
+          // notify enemy controller (remove from swarm trackers etc.)
+          try {
+            this.enemyAttackController.notifyEnemyKilled(enemy);
+          } catch {
+            /* ignore */
+          }
 
           // remove missile
           this.mainContainer.removeChild(m.gfx);
