@@ -35,7 +35,7 @@ export class PausePopup extends Container {
 
     this.title = new Label({
       text: "Paused",
-      style: { fill: 0xec1561, fontSize: 50 },
+      style: { fill: 0xec1561, fontSize: 50 }
     });
     this.title.y = -80;
     this.panel.addChild(this.title);
@@ -59,7 +59,7 @@ export class PausePopup extends Container {
     const currentEngine = engine();
     if (currentEngine.navigation.currentScreen) {
       currentEngine.navigation.currentScreen.filters = [
-        new BlurFilter({ strength: 5 }),
+        new BlurFilter({ strength: 5 })
       ];
     }
     this.bg.alpha = 0;
@@ -68,7 +68,7 @@ export class PausePopup extends Container {
     await animate(
       this.panel.pivot,
       { y: 0 },
-      { duration: 0.3, ease: "backOut" },
+      { duration: 0.3, ease: "backOut" }
     );
   }
 
@@ -82,7 +82,7 @@ export class PausePopup extends Container {
     await animate(
       this.panel.pivot,
       { y: -500 },
-      { duration: 0.3, ease: "backIn" },
+      { duration: 0.3, ease: "backIn" }
     );
   }
 }

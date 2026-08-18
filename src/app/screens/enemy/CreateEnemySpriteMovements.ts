@@ -50,7 +50,7 @@ const baseArcTable = [
   [1, 1],
   [1, 0],
   [1, 0],
-  [1, 0],
+  [1, 0]
 ];
 
 export class CreateEnemySpriteArc {
@@ -81,7 +81,7 @@ export class CreateEnemySpriteArc {
 
     this.arcTable = baseArcTable.map(([dx, dy]) => [
       (this.direction ? dx : -dx) * this.scaleX,
-      dy * this.scaleY,
+      dy * this.scaleY
     ]);
   }
   public startAnimation() {

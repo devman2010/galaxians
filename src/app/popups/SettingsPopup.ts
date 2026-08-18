@@ -51,8 +51,8 @@ export class SettingsPopup extends Container {
       text: "Settings",
       style: {
         fill: 0xec1561,
-        fontSize: 50,
-      },
+        fontSize: 50
+      }
     });
     this.title.y = -this.panelBase.boxHeight * 0.5 + 60;
     this.panel.addChild(this.title);
@@ -66,8 +66,8 @@ export class SettingsPopup extends Container {
       text: `Version ${APP_VERSION}`,
       style: {
         fill: 0xffffff,
-        fontSize: 12,
-      },
+        fontSize: 12
+      }
     });
     this.versionLabel.alpha = 0.5;
     this.versionLabel.y = this.panelBase.boxHeight * 0.5 - 15;
@@ -117,7 +117,7 @@ export class SettingsPopup extends Container {
     const currentEngine = engine();
     if (currentEngine.navigation.currentScreen) {
       currentEngine.navigation.currentScreen.filters = [
-        new BlurFilter({ strength: 4 }),
+        new BlurFilter({ strength: 4 })
       ];
     }
 
@@ -127,7 +127,7 @@ export class SettingsPopup extends Container {
     await animate(
       this.panel.pivot,
       { y: 0 },
-      { duration: 0.3, ease: "backOut" },
+      { duration: 0.3, ease: "backOut" }
     );
   }
 
@@ -143,8 +143,8 @@ export class SettingsPopup extends Container {
       { y: -500 },
       {
         duration: 0.3,
-        ease: "backIn",
-      },
+        ease: "backIn"
+      }
     );
   }
 }

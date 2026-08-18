@@ -114,6 +114,14 @@ export class EnemyAttackController {
   private updateEnemyArc(deltaTime: number) {
     if (this.enemyAttackArc.length > 0) {
       this.enemyAttackArc.forEach((enemyArc) => {
+        const arcState = Number(enemyArc.enemyAnimatedSprite.enemyState);
+        if (
+          arcState === Number(ENEMY_STATE.DEAD) ||
+          arcState === Number(ENEMY_STATE.DYING)
+        ) {
+          return;
+        }
+
         enemyArc.enemySpriteArc.update(deltaTime);
         if (
           enemyArc.enemySpriteArc.isAnimationEnded() &&
@@ -126,14 +134,27 @@ export class EnemyAttackController {
       });
     }
 
-    this.enemyAttackArc = this.enemyAttackArc.filter(
-      (enemyArc) => !enemyArc.enemySpriteArc.isAnimationEnded()
-    );
+    this.enemyAttackArc = this.enemyAttackArc.filter((enemyArc) => {
+      const arcState = Number(enemyArc.enemyAnimatedSprite.enemyState);
+      return (
+        arcState !== Number(ENEMY_STATE.DEAD) &&
+        arcState !== Number(ENEMY_STATE.DYING) &&
+        !enemyArc.enemySpriteArc.isAnimationEnded()
+      );
+    });
   }
 
   private updateSwarmTracker(deltaTime: number): void {
     if (this.enemySwarmTracker.size > 0) {
       this.enemySwarmTracker.enemySet.forEach((enemy) => {
+        const currentEnemyState = Number(enemy.enemyState);
+        if (
+          currentEnemyState === Number(ENEMY_STATE.DEAD) ||
+          currentEnemyState === Number(ENEMY_STATE.DYING)
+        ) {
+          return;
+        }
+
         switch (enemy.enemyState) {
           case ENEMY_STATE.BEGIN_ATTACK_SWARM:
             this.attackSwarm.push(
@@ -212,6 +233,10 @@ export class EnemyAttackController {
       /* ignore */
     }
 
+    this.enemyAttackArc = this.enemyAttackArc.filter(
+      (enemyArc) => enemyArc.enemyAnimatedSprite !== enemy
+    );
+
     try {
       this.attackSwarm.forEach((sw) => {
         if (sw.getSprite() === enemy) {
@@ -224,5 +249,8 @@ export class EnemyAttackController {
     }
 
     this.sideSwarm = this.sideSwarm.filter((e) => e !== enemy);
+    this.attackSwarm = this.attackSwarm.filter(
+      (sw) => sw.getSprite() !== enemy
+    );
   }
 }

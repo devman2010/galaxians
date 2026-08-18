@@ -7,7 +7,7 @@ export class PlayerShipMove {
     speed: number = 5,
     xMinLimit: number = 0,
     xMaxLimit: number = window.innerWidth,
-    deltaTime: number = 1,
+    deltaTime: number = 1
   ): void {
     switch (direction) {
       case "left":

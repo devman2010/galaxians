@@ -54,7 +54,7 @@ export const enemyMap: (ENEMY_TYPE | 0)[][] = [
     ENEMY_TYPE.RED,
     ENEMY_TYPE.RED,
     0,
-    0,
+    0
   ],
   [
     0,
@@ -66,7 +66,7 @@ export const enemyMap: (ENEMY_TYPE | 0)[][] = [
     ENEMY_TYPE.PURPLE,
     ENEMY_TYPE.PURPLE,
     ENEMY_TYPE.PURPLE,
-    0,
+    0
   ],
   [
     ENEMY_TYPE.BLUE,
@@ -78,7 +78,7 @@ export const enemyMap: (ENEMY_TYPE | 0)[][] = [
     ENEMY_TYPE.BLUE,
     ENEMY_TYPE.BLUE,
     ENEMY_TYPE.BLUE,
-    ENEMY_TYPE.BLUE,
+    ENEMY_TYPE.BLUE
   ],
   [
     ENEMY_TYPE.BLUE,
@@ -90,7 +90,7 @@ export const enemyMap: (ENEMY_TYPE | 0)[][] = [
     ENEMY_TYPE.BLUE,
     ENEMY_TYPE.BLUE,
     ENEMY_TYPE.BLUE,
-    ENEMY_TYPE.BLUE,
+    ENEMY_TYPE.BLUE
   ],
   [
     ENEMY_TYPE.BLUE,
@@ -102,6 +102,6 @@ export const enemyMap: (ENEMY_TYPE | 0)[][] = [
     ENEMY_TYPE.BLUE,
     ENEMY_TYPE.BLUE,
     ENEMY_TYPE.BLUE,
-    ENEMY_TYPE.BLUE,
-  ],
+    ENEMY_TYPE.BLUE
+  ]
 ];

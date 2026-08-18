@@ -11,10 +11,10 @@ export function assetpackPlugin() {
       ...pixiPipes({
         cacheBust: false,
         manifest: {
-          output: "./src/manifest.json",
-        },
-      }),
-    ],
+          output: "./src/manifest.json"
+        }
+      })
+    ]
   } as AssetPackConfig;
   let mode: ResolvedConfig["command"];
   let ap: AssetPack | undefined;
@@ -48,6 +48,6 @@ export function assetpackPlugin() {
         await ap.stop();
         ap = undefined;
       }
-    },
+    }
   } as Plugin;
 }

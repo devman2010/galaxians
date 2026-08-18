@@ -59,7 +59,7 @@ export function randomColor(random = Math.random): number {
 export function randomRange(
   min: number,
   max: number,
-  random = Math.random,
+  random = Math.random
 ): number {
   const a = Math.min(min, max);
   const b = Math.max(min, max);
@@ -125,7 +125,7 @@ export function randomShuffle<T>(array: T[], random = Math.random): T[] {
 export function randomHash(
   length: number,
   random = Math.random,
-  charset = HASH_CHARSET,
+  charset = HASH_CHARSET
 ): string {
   const charsetLength = charset.length;
   let result = "";

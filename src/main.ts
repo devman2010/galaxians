@@ -18,14 +18,14 @@ setEngine(engine);
   // Initialize the creation engine instance
   await engine.init({
     resizeTo: window, // Resize the application to the window
-   // width: 384, // Width of the application
-   // height: 264,
+    // width: 384, // Width of the application
+    // height: 264,
     backgroundColor: 0x000000, // Background color
-    antialias: true,     // Enable antialiasing
-    resolution: 1,       // Resolution / device pixel ratio
-    preference: 'webgl', // or 'webgpu' // Renderer preference
-    sharedTicker : false, // Use a shared ticker
-    autoStart: true, // Automatically start the ticker
+    antialias: true, // Enable antialiasing
+    resolution: 1, // Resolution / device pixel ratio
+    preference: "webgl", // or 'webgpu' // Renderer preference
+    sharedTicker: false, // Use a shared ticker
+    autoStart: true // Automatically start the ticker
   });
 
   // Initialize the user settings

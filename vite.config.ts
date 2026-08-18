@@ -9,9 +9,9 @@ export default defineConfig({
   server: {
     host: "localhost",
     port: 8080,
-    open: true,
+    open: true
   },
   define: {
-    APP_VERSION: JSON.stringify(process.env.npm_package_version),
-  },
+    APP_VERSION: JSON.stringify(process.env.npm_package_version)
+  }
 });

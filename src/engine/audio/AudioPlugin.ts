@@ -35,7 +35,7 @@ export class CreationAudioPlugin {
         } else {
           sound.unmuteAll();
         }
-      },
+      }
     };
   }
 

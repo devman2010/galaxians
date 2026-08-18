@@ -1,9 +1,9 @@
 import { EnemyAnimatedSprite } from "./EnemyAnimatedSprite";
 
 export class EnemySwarmTrackerData {
-    public enemyAnimatedSprite: EnemyAnimatedSprite;
+  public enemyAnimatedSprite: EnemyAnimatedSprite;
 
-    constructor(enemyAnimatedSprite: EnemyAnimatedSprite) {
-        this.enemyAnimatedSprite = enemyAnimatedSprite;
-    }
+  constructor(enemyAnimatedSprite: EnemyAnimatedSprite) {
+    this.enemyAnimatedSprite = enemyAnimatedSprite;
+  }
 }

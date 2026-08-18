@@ -8,7 +8,7 @@ const defaultButtonOptions = {
   text: "",
   width: 301,
   height: 112,
-  fontSize: 28,
+  fontSize: 28
 };
 
 type ButtonOptions = typeof defaultButtonOptions;
@@ -29,8 +29,8 @@ export class Button extends FancyButton {
         style: {
           fill: 0x4a4a4a,
           align: "center",
-          fontSize: opts.fontSize,
-        },
+          fontSize: opts.fontSize
+        }
       }),
       textOffset: { x: 0, y: -13 },
       defaultTextAnchor: 0.5,
@@ -39,18 +39,18 @@ export class Button extends FancyButton {
         hover: {
           props: {
             scale: { x: 1.03, y: 1.03 },
-            y: 0,
+            y: 0
           },
-          duration: 100,
+          duration: 100
         },
         pressed: {
           props: {
             scale: { x: 0.97, y: 0.97 },
-            y: 10,
+            y: 10
           },
-          duration: 100,
-        },
-      },
+          duration: 100
+        }
+      }
     });
 
     this.width = opts.width;

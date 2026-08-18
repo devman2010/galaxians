@@ -3,7 +3,7 @@ import { Text } from "pixi.js";
 
 const defaultLabelStyle: Partial<TextStyleOptions> = {
   fontFamily: "Arial Rounded MT Bold",
-  align: "center",
+  align: "center"
 };
 
 export type LabelOptions = typeof defaultLabelStyle;

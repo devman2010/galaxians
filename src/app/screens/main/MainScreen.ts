@@ -4,7 +4,9 @@ import {
   Graphics,
   AnimatedSprite,
   Assets,
-  Sprite
+  Sprite,
+  Text,
+  TextStyle
 } from "pixi.js";
 import { engine } from "../../getEngine";
 import { PausePopup } from "../../popups/PausePopup";
@@ -31,8 +33,37 @@ export class MainScreen extends Container {
   public playerShip: PlayerShip;
   public enemyAttackController: EnemyAttackController;
   public stats: Stats;
+  private score = 0;
+  private highScore = 0;
+  private waveNumber = 1;
+  private waveResetTimer = 0;
+  private waveResetDelay = 1.0;
+  private readonly highScoreKey = "galaxians-high-score";
+  private credits = 0;
+  private lives = 3;
+  private gameStarted = false;
+  private hudContainer: Container;
+  private scoreLabel: Text;
+  private scoreValue: Text;
+  private highScoreLabel: Text;
+  private highScoreValue: Text;
+  private playerLabel: Text;
+  private playerValue: Text;
+  private startPromptText: Text;
+  private enemyMissileSpawnTimer = 0;
+  private creditPressedLastFrame = false;
+  private startPressedLastFrame = false;
+  private playerRespawnTimer = 0;
+  private playerShipExploding = false;
   // Active player missiles (sprite + speed)
   public playerMissiles: { gfx: Sprite; speed: number }[] = [];
+  // Active enemy missiles (sprite + speed + drift)
+  public enemyMissiles: {
+    gfx: Sprite;
+    speed: number;
+    velocityX: number;
+    velocityY: number;
+  }[] = [];
   // Active explosions (gfx, life elapsed, duration)
   public explosions: { gfx: Graphics; life: number; duration: number }[] = [];
   // Track space key to fire once per press
@@ -51,12 +82,116 @@ export class MainScreen extends Container {
     this.enemyWave = CreateEnemyWave.createWave(enemyMap);
     this.addChild(this.mainContainer);
     this.resize(engine().screen.width, engine().screen.height);
+
+    this.highScore = Number(localStorage.getItem(this.highScoreKey) ?? 0);
+    this.hudContainer = new Container();
+    this.scoreLabel = new Text(
+      "1UP",
+      new TextStyle({
+        fill: "#ffffff",
+        fontSize: 7,
+        fontFamily: "monospace",
+        fontWeight: "bold",
+        letterSpacing: 1
+      })
+    );
+    this.scoreValue = new Text(
+      "0",
+      new TextStyle({
+        fill: "#ff0000",
+        fontSize: 12,
+        fontFamily: "monospace",
+        fontWeight: "bold"
+      })
+    );
+    this.highScoreLabel = new Text(
+      "HIGH SCORE",
+      new TextStyle({
+        fill: "#ffffff",
+        fontSize: 7,
+        fontFamily: "monospace",
+        fontWeight: "bold",
+        letterSpacing: 1
+      })
+    );
+    this.highScoreValue = new Text(
+      String(this.highScore),
+      new TextStyle({
+        fill: "#ff0000",
+        fontSize: 12,
+        fontFamily: "monospace",
+        fontWeight: "bold"
+      })
+    );
+    this.playerLabel = new Text(
+      "LIVES",
+      new TextStyle({
+        fill: "#ffffff",
+        fontSize: 7,
+        fontFamily: "monospace",
+        fontWeight: "bold",
+        letterSpacing: 1
+      })
+    );
+    this.playerValue = new Text(
+      "3",
+      new TextStyle({
+        fill: "#ff0000",
+        fontSize: 12,
+        fontFamily: "monospace",
+        fontWeight: "bold"
+      })
+    );
+
+    this.scoreLabel.x = 10;
+    this.scoreLabel.y = 4;
+    this.scoreValue.x = 10;
+    this.scoreValue.y = 13;
+    this.highScoreLabel.x = 136;
+    this.highScoreLabel.y = 4;
+    this.highScoreValue.x = 150;
+    this.highScoreValue.y = 13;
+    this.playerLabel.x = 160;
+    this.playerLabel.y = 232;
+    this.playerValue.x = 200;
+    this.playerValue.y = 232;
+
+    this.hudContainer.addChild(
+      this.scoreLabel,
+      this.scoreValue,
+      this.highScoreLabel,
+      this.highScoreValue,
+      this.playerLabel,
+      this.playerValue
+    );
+    this.mainContainer.addChild(this.hudContainer);
+
+    this.startPromptText = new Text(
+      "PRESS START",
+      new TextStyle({
+        fill: "#ffffff",
+        fontSize: 10,
+        fontFamily: "monospace",
+        fontWeight: "bold",
+        letterSpacing: 1,
+        align: "center"
+      })
+    );
+    this.startPromptText.anchor.set(0.5);
+    this.startPromptText.x = this.WIDTH / 2;
+    this.startPromptText.y = 120;
+    this.startPromptText.visible = true;
+    this.mainContainer.addChild(this.startPromptText);
+
     this.playerShip = new PlayerShip(this.WIDTH / 2, this.HEIGHT - 16);
     this.mainContainer.addChild(this.playerShip);
+    this.resetWave();
     this.enemyAttackController = new EnemyAttackController(
       this.enemyWave,
       this.playerShip
     );
+    this.setAttractMode();
+    this.updateScoreHud();
     this.registerEvents();
     this.stats = new Stats();
     this.stats.showPanel(2);
@@ -101,6 +236,61 @@ export class MainScreen extends Container {
   public update(_time: Ticker) {
     if (this.paused) return;
     this.stats.begin();
+
+    if (this.playerRespawnTimer > 0) {
+      this.playerRespawnTimer = Math.max(
+        0,
+        this.playerRespawnTimer - _time.deltaTime / 60
+      );
+      if (this.playerRespawnTimer === 0) {
+        this.playerShip.visible = true;
+        this.playerShip.x = this.WIDTH / 2;
+        this.playerShip.y = this.HEIGHT - 16;
+        this.playerShipExploding = false;
+      }
+    }
+
+    if (!this.gameStarted) {
+      this.startPromptText.visible = true;
+      const creditPressed = this.keys["Digit1"] || this.keys["Numpad1"];
+      if (creditPressed) {
+        if (!this.creditPressedLastFrame) {
+          this.insertCredit();
+          this.creditPressedLastFrame = true;
+        }
+      } else {
+        this.creditPressedLastFrame = false;
+      }
+
+      if (this.keys["KeyS"]) {
+        if (!this.startPressedLastFrame) {
+          this.startRound();
+          this.startPressedLastFrame = true;
+        }
+      } else {
+        this.startPressedLastFrame = false;
+      }
+
+      this.starBg.update(_time);
+      this.stats.end();
+      return;
+    }
+
+    this.startPromptText.visible = false;
+
+    if (this.waveResetTimer > 0) {
+      this.waveResetTimer = Math.max(
+        0,
+        this.waveResetTimer - _time.deltaTime / 60
+      );
+      if (this.waveResetTimer === 0) {
+        this.waveNumber += 1;
+        this.resetWave();
+      }
+      this.stats.end();
+      return;
+    }
+
     this.moveEnemiesLeftAndRight(_time);
     this.starBg.update(_time);
     this.updatePlayerShipPosition(_time);
@@ -116,14 +306,234 @@ export class MainScreen extends Container {
     }
 
     this.enemyAttackController.update(_time.deltaTime);
+    this.updateEnemyMissiles(_time.deltaTime);
 
     // Update missiles (movement, collisions, cleanup)
     this.updateMissiles(_time.deltaTime);
 
     // Update explosions (animate and remove)
     this.updateExplosions(_time.deltaTime);
+    this.updateFlyingSound();
+
+    if (this.isWaveCleared()) {
+      this.waveResetTimer = this.waveResetDelay;
+    }
 
     this.stats.end();
+  }
+
+  private isWaveCleared(): boolean {
+    if (this.enemyWave.length === 0) return false;
+
+    return this.enemyWave.every((enemy) => {
+      const deadOrGone =
+        enemy.enemyState === ENEMY_STATE.DEAD ||
+        enemy.enemyState === ENEMY_STATE.DYING ||
+        enemy.enemyState === ENEMY_STATE.END_ATTACK_SWARM ||
+        !enemy.visible ||
+        !enemy.parent;
+
+      return deadOrGone;
+    });
+  }
+
+  private updateScoreHud(): void {
+    this.scoreValue.text = String(this.score).padStart(6, "0");
+    this.highScoreValue.text = String(this.highScore).padStart(6, "0");
+  }
+
+  private updateCreditHud(): void {
+    // credit display intentionally hidden to match the requested arcade presentation
+  }
+
+  private updateLivesHud(): void {
+    this.playerValue.text = String(Math.max(0, this.lives));
+  }
+
+  private centerWaveForAttractMode(): void {
+    if (this.enemyWave.length === 0) return;
+
+    const activeEnemies = this.enemyWave.filter(
+      (enemy) => enemy.visible && enemy.parent
+    );
+    if (activeEnemies.length === 0) return;
+
+    const leftMost = Math.min(...activeEnemies.map((enemy) => enemy.x));
+    const rightMost = Math.max(...activeEnemies.map((enemy) => enemy.x));
+    const spread = rightMost - leftMost + 18;
+    const startX = this.WIDTH / 2 - spread / 2;
+
+    activeEnemies.forEach((enemy) => {
+      enemy.baseX = startX + (enemy.x - leftMost);
+      enemy.x = enemy.baseX;
+    });
+  }
+
+  private setAttractMode(): void {
+    this.gameStarted = false;
+    this.startPromptText.visible = true;
+    try {
+      const bgm = engine().audio.bgm;
+      if (bgm?.current) {
+        bgm.current.stop();
+      }
+      if (bgm) {
+        bgm.currentAlias = undefined;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.updateCreditHud();
+    this.resetWave();
+    this.centerWaveForAttractMode();
+    this.playerShip.visible = true;
+    this.playerShip.x = this.WIDTH / 2;
+    this.playerShip.y = this.HEIGHT - 16;
+  }
+
+  private startRound(): void {
+    if (this.credits <= 0 || this.gameStarted) return;
+
+    this.credits -= 1;
+    this.lives = 3;
+    this.waveNumber = 1;
+    this.gameStarted = true;
+    this.updateCreditHud();
+    this.updateLivesHud();
+    this.playerShip.visible = true;
+    this.resetWave();
+    this.playSound("main/sounds/02. Start Game.mp3");
+    this.playFlyingSound();
+  }
+
+  private insertCredit(): void {
+    this.credits += 1;
+    this.playSound("main/sounds/01. Credit Sound.mp3");
+    this.updateCreditHud();
+  }
+
+  private playSound(alias: string, volume = 1): void {
+    try {
+      engine().audio.sfx.play(alias, { volume });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private playFlyingSound(): void {
+    if (!this.gameStarted) return;
+    try {
+      engine().audio.bgm.play("main/sounds/06. Flying Sound.mp3", {
+        volume: 0.3
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private updateFlyingSound(): void {
+    if (!this.gameStarted) {
+      return;
+    }
+
+    const enemyCount = this.enemyWave.filter(
+      (enemy) =>
+        enemy &&
+        enemy.visible &&
+        enemy.parent &&
+        enemy.enemyState !== ENEMY_STATE.DEAD &&
+        enemy.enemyState !== ENEMY_STATE.DYING
+    ).length;
+    const speed = Math.max(0.7, 1.5 - enemyCount / 40);
+    try {
+      const flyingSound = engine().audio.bgm.current;
+      if (flyingSound) {
+        flyingSound.speed = speed;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private getEnemyMissileSpeed(enemy: EnemyAnimatedSprite): number {
+    const baseSpeed = 2.2 + this.waveNumber * 0.18;
+    const midGameBoost = this.waveNumber >= 8 ? 0.8 : 0;
+    const wave16Spike = this.waveNumber >= 16 ? 1.2 : 0;
+    const wave30Spike = this.waveNumber >= 30 ? 2.0 : 0;
+    const rankBoost =
+      enemy.enemyType === 4 || enemy.enemyType === 3 ? 0.6 : 0.1;
+    const desperation =
+      this.enemyWave.filter(
+        (candidate) => candidate.visible && candidate.parent
+      ).length < 10
+        ? 0.5
+        : 0;
+
+    return Math.min(
+      8.2,
+      baseSpeed +
+        midGameBoost +
+        wave16Spike +
+        wave30Spike +
+        rankBoost +
+        desperation
+    );
+  }
+
+  private addScoreForEnemy(enemy: EnemyAnimatedSprite): void {
+    const value = enemy.enemyType * 10;
+    this.score += value;
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      try {
+        localStorage.setItem(this.highScoreKey, String(this.highScore));
+      } catch {
+        /* ignore */
+      }
+    }
+    this.updateScoreHud();
+  }
+
+  private resetWave(): void {
+    this.playerMissiles.forEach((missile) => {
+      if (missile.gfx.parent) {
+        missile.gfx.parent.removeChild(missile.gfx);
+      }
+    });
+    this.playerMissiles = [];
+    this.enemyMissiles.forEach((missile) => {
+      if (missile.gfx.parent) {
+        missile.gfx.parent.removeChild(missile.gfx);
+      }
+    });
+    this.enemyMissiles = [];
+    this.enemyMissileSpawnTimer = 0;
+
+    this.enemyWave.forEach((enemy) => {
+      if (enemy.parent) {
+        enemy.parent.removeChild(enemy);
+      }
+    });
+
+    this.enemyWave = CreateEnemyWave.createWave(enemyMap);
+    this.enemyAttackController = new EnemyAttackController(
+      this.enemyWave,
+      this.playerShip
+    );
+    this.dirToggle = false;
+    this.waveResetTimer = 0;
+
+    this.enemyWave.forEach((enemy) => {
+      enemy.scale.set(1);
+      enemy.anchor.set(0.5);
+      enemy.blendMode = "add";
+      enemy.animationSpeed = 0.062;
+      enemy.autoUpdate = true;
+      this.mainContainer.addChild(enemy);
+      enemy.play();
+      enemy.visible = true;
+      enemy.enemyState = ENEMY_STATE.ALIVE_IDLE;
+    });
   }
 
   /** Pause gameplay - automatically fired when a popup is presented */
@@ -201,6 +611,9 @@ export class MainScreen extends Container {
 
   // Create and fire a player missile (sprite from spritesheet)
   public fireMissile(): void {
+    // Original Galaxian rules: only one active player missile at a time.
+    if (this.playerMissiles.length > 0) return;
+
     const sprite = Sprite.from("playerMissle_0.png");
     sprite.anchor.set(0.5, 0.5);
     // use native sprite size (no scaling)
@@ -212,6 +625,7 @@ export class MainScreen extends Container {
 
     this.mainContainer.addChild(sprite);
     this.playerMissiles.push({ gfx: sprite, speed: 4 });
+    this.playSound("main/sounds/03. Shoot.mp3");
   }
 
   // Explosion helper (uses spritesheet animation)
@@ -290,6 +704,115 @@ export class MainScreen extends Container {
     remove.sort((a, b) => b - a).forEach((i) => this.explosions.splice(i, 1));
   }
 
+  private losePlayerLife(): void {
+    if (this.playerShipExploding) return;
+    this.playerShipExploding = true;
+    this.lives = Math.max(0, this.lives - 1);
+    this.updateLivesHud();
+    this.playSound("main/sounds/04. Fighter Loss.mp3");
+    this.playerShip.visible = false;
+    this.enemyMissiles.forEach((missile) => {
+      if (missile.gfx.parent) {
+        missile.gfx.parent.removeChild(missile.gfx);
+      }
+    });
+    this.enemyMissiles = [];
+
+    this.createExplosion(this.playerShip.x, this.playerShip.y, () => {
+      if (this.lives <= 0) {
+        this.credits = 0;
+        this.updateCreditHud();
+        this.setAttractMode();
+        this.enemyWave.forEach((enemy) => {
+          if (enemy.parent) {
+            enemy.parent.removeChild(enemy);
+          }
+          enemy.visible = false;
+          enemy.enemyState = ENEMY_STATE.DEAD;
+        });
+        this.gameStarted = false;
+        this.playerShipExploding = false;
+        return;
+      }
+
+      this.playerRespawnTimer = 2.0;
+    });
+  }
+
+  private updateEnemyMissiles(deltaTime: number): void {
+    this.enemyMissileSpawnTimer -= deltaTime / 60;
+    if (this.enemyMissileSpawnTimer > 0) {
+      const removeIndices: number[] = [];
+      this.enemyMissiles.forEach((missile, idx) => {
+        missile.velocityY = Math.min(missile.velocityY + 0.05, 9.5);
+        missile.gfx.x += missile.velocityX * deltaTime * 0.09;
+        missile.gfx.y += missile.velocityY * deltaTime * 0.09;
+        if (missile.gfx.y > this.HEIGHT + 20) {
+          if (missile.gfx.parent) {
+            missile.gfx.parent.removeChild(missile.gfx);
+          }
+          removeIndices.push(idx);
+          return;
+        }
+
+        const shipBounds = this.playerShip.getBounds();
+        const shotBounds = missile.gfx.getBounds();
+        if (
+          shotBounds.x + shotBounds.width > shipBounds.x &&
+          shotBounds.x < shipBounds.x + shipBounds.width &&
+          shotBounds.y + shotBounds.height > shipBounds.y &&
+          shotBounds.y < shipBounds.y + shipBounds.height
+        ) {
+          this.losePlayerLife();
+          if (missile.gfx.parent) {
+            missile.gfx.parent.removeChild(missile.gfx);
+          }
+          removeIndices.push(idx);
+        }
+      });
+      removeIndices
+        .sort((a, b) => b - a)
+        .forEach((idx) => this.enemyMissiles.splice(idx, 1));
+      return;
+    }
+
+    const swarmingEnemies = this.enemyWave.filter(
+      (enemy) =>
+        enemy &&
+        enemy.visible &&
+        enemy.parent &&
+        (enemy.enemyState === ENEMY_STATE.ATTACK_SWARM ||
+          enemy.enemyState === ENEMY_STATE.BEGIN_ATTACK_SWARM ||
+          enemy.enemyState === ENEMY_STATE.END_ATTACK_SWARM)
+    );
+
+    if (swarmingEnemies.length === 0) {
+      this.enemyMissileSpawnTimer = 0.25;
+      return;
+    }
+
+    const shooter =
+      swarmingEnemies[Math.floor(Math.random() * swarmingEnemies.length)];
+    const missile = Sprite.from("alienMissle_0.png");
+    const dx = this.playerShip.x - shooter.x;
+    const drift = Math.max(-1.9, Math.min(1.9, dx * 0.04));
+    missile.anchor.set(0.5, 0.5);
+    missile.x = shooter.x;
+    missile.y = shooter.y + 10;
+    this.mainContainer.addChild(missile);
+    const speed = this.getEnemyMissileSpeed(shooter);
+    this.enemyMissiles.push({
+      gfx: missile,
+      speed,
+      velocityX: drift,
+      velocityY: speed
+    });
+    this.enemyMissileSpawnTimer = Math.max(
+      0.45,
+      1.7 - this.waveNumber * 0.06 - this.enemyWave.length * 0.01
+    );
+  }
+
   // Update missiles: move, check collisions, remove offscreen/hits
   public updateMissiles(deltaTime: number): void {
     const removeIndices: number[] = [];
@@ -321,6 +844,8 @@ export class MainScreen extends Container {
         ) {
           // Hit: mark as dying and remove from display
           enemy.enemyState = ENEMY_STATE.DYING;
+          this.addScoreForEnemy(enemy);
+          this.playSound("main/sounds/07. Hit Enemy.mp3");
           try {
             if (this.mainContainer.children.includes(enemy)) {
               this.mainContainer.removeChild(enemy);
@@ -341,8 +866,16 @@ export class MainScreen extends Container {
             }
             try {
               // Stop animation and hide the sprite instead of destroying textures
-              try { enemy.stop(); } catch { /* ignore */ }
-              try { if (enemy.parent) enemy.parent.removeChild(enemy); } catch { /* ignore */ }
+              try {
+                enemy.stop();
+              } catch {
+                /* ignore */
+              }
+              try {
+                if (enemy.parent) enemy.parent.removeChild(enemy);
+              } catch {
+                /* ignore */
+              }
               enemy.visible = false;
             } catch {
               /* ignore */

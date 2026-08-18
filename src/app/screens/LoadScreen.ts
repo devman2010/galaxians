@@ -23,7 +23,7 @@ export class LoadScreen extends Container {
       value: 20,
       backgroundAlpha: 0.5,
       fillAlpha: 0.8,
-      cap: "round",
+      cap: "round"
     });
 
     this.progressBar.x += this.progressBar.width / 2;
@@ -34,7 +34,7 @@ export class LoadScreen extends Container {
     this.pixiLogo = new Sprite({
       texture: Texture.from("logo.svg"),
       anchor: 0.5,
-      scale: 0.2,
+      scale: 0.2
     });
     this.addChild(this.pixiLogo);
   }
@@ -59,7 +59,7 @@ export class LoadScreen extends Container {
     await animate(this, { alpha: 0 } as ObjectTarget<this>, {
       duration: 0.3,
       ease: "linear",
-      delay: 1,
+      delay: 1
     });
   }
 }

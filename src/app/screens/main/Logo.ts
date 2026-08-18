@@ -3,14 +3,14 @@ import { Sprite, Texture } from "pixi.js";
 import {
   randomBool,
   randomFloat,
-  randomInt,
+  randomInt
 } from "../../../engine/utils/random";
 
 export enum DIRECTION {
   NE,
   NW,
   SE,
-  SW,
+  SW
 }
 
 export class Logo extends Sprite {

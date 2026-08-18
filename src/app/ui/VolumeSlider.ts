@@ -30,7 +30,7 @@ export class VolumeSlider extends Slider {
         border,
         width - border * 2,
         height - border * 2,
-        radius,
+        radius
       )
       .fill({ color: backgroundColor });
 
@@ -42,7 +42,7 @@ export class VolumeSlider extends Slider {
         border,
         width - border * 2,
         height - border * 2,
-        radius,
+        radius
       )
       .fill({ color: fillColor });
 
@@ -55,7 +55,7 @@ export class VolumeSlider extends Slider {
       fill,
       slider,
       min,
-      max,
+      max
     });
 
     this.value = value;
@@ -65,8 +65,8 @@ export class VolumeSlider extends Slider {
       style: {
         align: "left",
         fill: 0x4a4a4a,
-        fontSize: 18,
-      },
+        fontSize: 18
+      }
     });
     this.messageLabel.anchor.x = 0;
     this.messageLabel.x = 10;

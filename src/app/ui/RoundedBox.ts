@@ -6,7 +6,7 @@ const defaultRoundedBoxOptions = {
   height: 600,
   shadow: true,
   shadowColor: 0xa0a0a0,
-  shadowOffset: 22,
+  shadowOffset: 22
 };
 
 export type RoundedBoxOptions = typeof defaultRoundedBoxOptions;
@@ -31,7 +31,7 @@ export class RoundedBox extends Container {
       bottomHeight: 34,
       width: opts.width,
       height: opts.height,
-      tint: opts.color,
+      tint: opts.color
     });
     this.image.x = -this.image.width * 0.5;
     this.image.y = -this.image.height * 0.5;
@@ -46,7 +46,7 @@ export class RoundedBox extends Container {
         bottomHeight: 34,
         width: opts.width,
         height: opts.height,
-        tint: opts.shadowColor,
+        tint: opts.shadowColor
       });
       this.shadow.x = -this.shadow.width * 0.5;
       this.shadow.y = -this.shadow.height * 0.5 + opts.shadowOffset;

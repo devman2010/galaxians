@@ -26,7 +26,7 @@ export class BGM {
       animate(current, { volume: 0 }, { duration: 1, ease: "linear" }).then(
         () => {
           current.stop();
-        },
+        }
       );
     }
 
@@ -40,7 +40,7 @@ export class BGM {
     animate(
       this.current,
       { volume: this.volume },
-      { duration: 1, ease: "linear" },
+      { duration: 1, ease: "linear" }
     );
   }
 

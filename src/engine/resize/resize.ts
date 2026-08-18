@@ -3,7 +3,7 @@ export function resize(
   h: number,
   minWidth: number,
   minHeight: number,
-  letterbox: boolean,
+  letterbox: boolean
 ) {
   const aspectRatio = minWidth / minHeight;
   let canvasWidth = w;
@@ -15,14 +15,14 @@ export function resize(
       canvasWidth = Math.min(
         window.innerWidth,
         minWidth,
-        canvasHeight * aspectRatio,
+        canvasHeight * aspectRatio
       );
     } else {
       canvasWidth = window.innerWidth;
       canvasHeight = Math.min(
         window.innerHeight,
         minHeight,
-        canvasWidth / aspectRatio,
+        canvasWidth / aspectRatio
       );
     }
   }
