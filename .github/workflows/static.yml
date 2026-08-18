@@ -39,9 +39,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
-          cache: 'pnpm'
-      - name: Configure pnpm for builds
-        run: pnpm config set ignore-scripts false && pnpm config set node-linker hoisted
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
       - name: Build
