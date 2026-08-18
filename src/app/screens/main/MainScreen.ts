@@ -24,6 +24,10 @@ export class MainScreen extends Container {
   public playerShip: PlayerShip;
   public enemyAttackController: EnemyAttackController;
   public stats: Stats;
+  // Active player missiles (graphics + speed)
+  public playerMissiles: { gfx: Graphics; speed: number }[] = [];
+  // Track space key to fire once per press
+  private spacePressedLastFrame: boolean = false;
   // Todo: Clean up
   constructor() {
     super();
@@ -91,7 +95,22 @@ export class MainScreen extends Container {
     this.moveEnemiesLeftAndRight(_time);
     this.starBg.update(_time);
     this.updatePlayerShipPosition(_time);
+
+    // Handle firing for space bar (fire once per keypress)
+    if (this.keys["Space"]) {
+      if (!this.spacePressedLastFrame) {
+        this.fireMissile();
+        this.spacePressedLastFrame = true;
+      }
+    } else {
+      this.spacePressedLastFrame = false;
+    }
+
     this.enemyAttackController.update(_time.deltaTime);
+
+    // Update missiles (movement, collisions, cleanup)
+    this.updateMissiles(_time.deltaTime);
+
     this.stats.end();
   }
 
@@ -166,6 +185,64 @@ export class MainScreen extends Container {
     if (isToggle) {
       this.dirToggle = !this.dirToggle;
     }
+  }
+
+  // Create and fire a player missile (yellow horizontal line)
+  public fireMissile(): void {
+    const missileWidth = 24;
+    const missileHeight = 20; // per preference
+    const gfx = new Graphics();
+    gfx.beginFill(0xffff00);
+    // drawRect with center alignment for easier positioning
+    gfx.drawRect(-missileWidth / 2, -missileHeight / 2, missileWidth, missileHeight);
+    gfx.endFill();
+
+    // Position the missile over the top-middle of the player's ship
+    const shipTop = this.playerShip.y - (this.playerShip.height / 2 || 8);
+    gfx.x = this.playerShip.x;
+    gfx.y = shipTop - (missileHeight / 2);
+
+    this.mainContainer.addChild(gfx);
+    // speed in same unit style as other movement (tweak if needed)
+    this.playerMissiles.push({ gfx, speed: 4 });
+  }
+
+  // Update missiles: move, check collisions, remove offscreen/hits
+  public updateMissiles(deltaTime: number): void {
+    const removeIndices: number[] = [];
+    this.playerMissiles.forEach((m, idx) => {
+      m.gfx.y -= m.speed * deltaTime;
+
+      const bounds = m.gfx.getBounds();
+      // Offscreen
+      if (bounds.y + bounds.height < 0) {
+        this.mainContainer.removeChild(m.gfx);
+        removeIndices.push(idx);
+        return;
+      }
+
+      // Collision against alive enemies
+      for (const enemy of this.enemyWave) {
+        if (enemy.enemyState !== ENEMY_STATE.ALIVE_IDLE) continue;
+        const enemyBounds = enemy.getBounds();
+        if (
+          bounds.x + bounds.width > enemyBounds.x &&
+          bounds.x < enemyBounds.x + enemyBounds.width &&
+          bounds.y < enemyBounds.y + enemyBounds.height &&
+          bounds.y + bounds.height > enemyBounds.y
+        ) {
+          // Hit
+          enemy.enemyState = ENEMY_STATE.DEAD;
+          enemy.visible = false;
+          this.mainContainer.removeChild(m.gfx);
+          removeIndices.push(idx);
+          break;
+        }
+      }
+    });
+
+    // Remove missiles from array (reverse order)
+    removeIndices.sort((a, b) => b - a).forEach((i) => this.playerMissiles.splice(i, 1));
   }
 
   /** Hide screen with animations */
