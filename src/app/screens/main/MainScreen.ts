@@ -1,4 +1,4 @@
-import { Ticker, Container, Graphics } from "pixi.js";
+import { Ticker, Container, Graphics, AnimatedSprite, Assets } from "pixi.js";
 import { engine } from "../../getEngine";
 import { PausePopup } from "../../popups/PausePopup";
 import { CreateEnemyWave, enemyMap } from "../enemy/CreateEnemyWave";
@@ -212,20 +212,36 @@ export class MainScreen extends Container {
     this.playerMissiles.push({ gfx, speed: 4 });
   }
 
-  // Explosion helper
-  public createExplosion(x: number, y: number, duration: number = 0.4): void {
-    const gfx = new Graphics();
-    gfx.x = x;
-    gfx.y = y;
-    // start tiny
-    gfx.beginFill(0xffcc00);
-    gfx.drawCircle(0, 0, 1);
-    gfx.endFill();
-    this.mainContainer.addChild(gfx);
-    this.explosions.push({ gfx, life: 0, duration });
+  // Explosion helper (uses spritesheet animation)
+  public createExplosion(x: number, y: number): void {
+    try {
+      const sheet: any = Assets.get("main/spritesheets/galaxians-spritesheet.json");
+      const explodeFrames = sheet.animations["alienExplode"];
+      const anim = new AnimatedSprite(explodeFrames);
+      anim.animationSpeed = 0.12;
+      anim.loop = false;
+      anim.anchor.set(0.5);
+      anim.x = x;
+      anim.y = y;
+      anim.onComplete = () => {
+        try { this.mainContainer.removeChild(anim); } catch (e) {}
+      };
+      this.mainContainer.addChild(anim);
+      anim.play();
+    } catch (err) {
+      // fallback to graphics explosion if assets not available
+      const gfx = new Graphics();
+      gfx.x = x;
+      gfx.y = y;
+      gfx.beginFill(0xffcc00);
+      gfx.drawCircle(0, 0, 6);
+      gfx.endFill();
+      this.mainContainer.addChild(gfx);
+      setTimeout(() => { try { this.mainContainer.removeChild(gfx); } catch (e) {} }, 400);
+    }
   }
 
-  // Update explosions: animate (expand & fade) and remove when done
+  // Update explosions: animate and remove (kept for compatibility with previous gfx explosions)
   public updateExplosions(deltaTime: number): void {
     const remove: number[] = [];
     this.explosions.forEach((e, idx) => {
