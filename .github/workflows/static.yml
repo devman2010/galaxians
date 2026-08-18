@@ -35,6 +35,9 @@ jobs:
         uses: pnpm/action-setup@v2
         with:
           version: latest
+      - name: Approve pnpm build scripts
+        run: |
+          pnpm approve-builds @ffmpeg-installer/linux-x64@4.1.0 cpu-features@0.0.10 esbuild@0.25.12 sharp@0.33.5 sharp@0.34.5 || true
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
