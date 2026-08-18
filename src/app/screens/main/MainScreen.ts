@@ -55,6 +55,9 @@ export class MainScreen extends Container {
   private startPressedLastFrame = false;
   private playerRespawnTimer = 0;
   private playerShipExploding = false;
+  // iPad soft-keyboard helpers
+  private kbOverlay?: HTMLDivElement;
+  private kbInput?: HTMLInputElement;
   // Active player missiles (sprite + speed)
   public playerMissiles: { gfx: Sprite; speed: number }[] = [];
   // Active enemy missiles (sprite + speed + drift)
@@ -71,7 +74,9 @@ export class MainScreen extends Container {
   // Todo: Clean up
   constructor() {
     super();
+    // Force nearest neighbor sampling for pixel-art look
     TexturePool.textureOptions.scaleMode = "nearest"; // Set the scale mode to nearest for pixel art
+    // mainContainer holds the low-res scene content (rendered offscreen)
     this.mainContainer = new Container();
     const background = new Graphics()
       .rect(0, 0, this.WIDTH, this.HEIGHT)
@@ -80,8 +85,18 @@ export class MainScreen extends Container {
     this.starBg = new StarBackground(this.WIDTH, this.HEIGHT, 100, 0.6);
     this.mainContainer.addChild(this.starBg);
     this.enemyWave = CreateEnemyWave.createWave(enemyMap);
+
+    // Render the game scene directly to the stage. The render-to-texture path was
+    // producing a blank screen in practice, so we keep the low-resolution playfield
+    // and apply pixelated scaling via canvas CSS instead.
     this.addChild(this.mainContainer);
-    this.resize(engine().screen.width, engine().screen.height);
+
+    // Only call resize with valid engine screen dimensions; fall back to window size
+    let sw = engine().screen.width;
+    if (!(sw > 0)) sw = window.innerWidth;
+    let sh = engine().screen.height;
+    if (!(sh > 0)) sh = window.innerHeight;
+    this.resize(sw, sh);
 
     this.highScore = Number(localStorage.getItem(this.highScoreKey) ?? 0);
     this.hudContainer = new Container();
@@ -196,6 +211,12 @@ export class MainScreen extends Container {
     this.stats = new Stats();
     this.stats.showPanel(2);
     document.body.appendChild(this.stats.dom);
+    // Init iPad keyboard helper (shows overlay in portrait to open soft keyboard)
+    try {
+      this.initKeyboardForiPad();
+    } catch {
+      /* ignore */
+    }
   }
 
   public registerEvents() {
@@ -455,6 +476,99 @@ export class MainScreen extends Container {
     }
   }
 
+  /**
+   * iPad soft-keyboard helper: shows a small overlay in portrait orientation.
+   * User taps the overlay (a user gesture) to focus a tiny input that opens the
+   * on-screen keyboard. Input events are mapped to game key actions.
+   */
+  private initKeyboardForiPad(): void {
+    try {
+      const isiPad =
+        /iPad|Macintosh/.test(navigator.userAgent) &&
+        (navigator as any).maxTouchPoints > 1;
+      if (!isiPad) return;
+
+      this.kbInput = document.createElement("input");
+      this.kbInput.type = "text";
+      this.kbInput.setAttribute("autocorrect", "off");
+      this.kbInput.setAttribute("autocomplete", "off");
+      this.kbInput.spellcheck = false;
+      Object.assign(this.kbInput.style, {
+        position: "fixed",
+        left: "12px",
+        bottom: "12px",
+        width: "1px",
+        height: "1px",
+        opacity: "0.01",
+        zIndex: "9999"
+      } as any);
+      document.body.appendChild(this.kbInput);
+
+      this.kbOverlay = document.createElement("div");
+      this.kbOverlay.innerText = "Tap to open keyboard";
+      Object.assign(this.kbOverlay.style, {
+        position: "fixed",
+        left: "50%",
+        bottom: "16px",
+        transform: "translateX(-50%)",
+        padding: "8px 14px",
+        background: "rgba(0,0,0,0.6)",
+        color: "white",
+        borderRadius: "6px",
+        zIndex: "9999",
+        fontFamily: "monospace",
+        cursor: "pointer"
+      } as any);
+      document.body.appendChild(this.kbOverlay);
+
+      this.kbOverlay.addEventListener("click", () => {
+        try {
+          if (this.kbInput) this.kbInput.focus();
+        } catch {
+          /* ignore */
+        }
+        if (this.kbOverlay) this.kbOverlay.style.display = "none";
+      });
+
+      this.kbInput.addEventListener("input", () => {
+        if (!this.kbInput) return;
+        const v = this.kbInput.value;
+        if (!v) return;
+        const ch = v.slice(-1).toLowerCase();
+
+        // Map soft-key input to game keys (short tap behaviour)
+        if (ch === "a") {
+          this.keys["ArrowLeft"] = true;
+          setTimeout(() => (this.keys["ArrowLeft"] = false), 120);
+        } else if (ch === "d") {
+          this.keys["ArrowRight"] = true;
+          setTimeout(() => (this.keys["ArrowRight"] = false), 120);
+        } else if (ch === " " || ch === "s") {
+          this.keys["Space"] = true;
+          setTimeout(() => (this.keys["Space"] = false), 120);
+        }
+
+        // Clear so next tap is fresh
+        this.kbInput.value = "";
+      });
+
+      const m = window.matchMedia("(orientation: portrait)");
+      const updateOverlay = () => {
+        if (!this.kbOverlay) return;
+        this.kbOverlay.style.display = m.matches ? "block" : "none";
+      };
+      try {
+        m.addEventListener("change", updateOverlay);
+      } catch {
+        // older Safari fallback
+        if ((m as any).addListener) (m as any).addListener(updateOverlay);
+      }
+      updateOverlay();
+    } catch {
+      /* ignore */
+    }
+  }
+
   private getEnemyMissileSpeed(enemy: EnemyAnimatedSprite): number {
     // Increase base speed and multipliers for a more aggressive feel
     const baseSpeed = 3.0 + this.waveNumber * 0.25;
@@ -556,16 +670,26 @@ export class MainScreen extends Container {
     const targetWidth = this.WIDTH;
     const targetHeight = this.HEIGHT;
 
-    // Calculate scale factor
+    // Calculate scale factor to upscale the low-res scene while keeping aspect ratio
     const scaleX = width / targetWidth;
     const scaleY = height / targetHeight;
-    const scale = Math.min(scaleX, scaleY); // Maintain aspect ratio
+    const scale = Math.min(scaleX, scaleY);
 
-    // Apply scaling
     this.mainContainer.scale.set(scale);
+    this.mainContainer.x = Math.round((width - targetWidth * scale) / 2);
+    this.mainContainer.y = Math.round((height - targetHeight * scale) / 2);
 
-    this.mainContainer.x = (width - targetWidth * scale) / 2;
-    this.mainContainer.y = (height - targetHeight * scale) / 2;
+    // Also set canvas CSS to pixelated to prevent smoothing in browsers
+    try {
+      const canvas = document.querySelector(
+        "canvas"
+      ) as HTMLCanvasElement | null;
+      if (canvas) {
+        canvas.style.imageRendering = "pixelated";
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   /** Show screen with animations */
