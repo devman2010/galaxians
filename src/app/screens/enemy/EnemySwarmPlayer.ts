@@ -7,13 +7,13 @@ export enum AlienType {
   Red,
   Blue,
   Purple,
-  Yellow,
+  Yellow
 }
 
 enum PlanState {
   ReadyToAttack,
   AttackingPlayer,
-  ReturningToSwarm,
+  ReturningToSwarm
 }
 
 export class EnemySwarmPlayer {
@@ -62,7 +62,7 @@ export class EnemySwarmPlayer {
 
     // Determine side
     const deltaX = shipPos.x - this.position.x;
-    let half = Math.floor(deltaX / 2);
+    const half = Math.floor(deltaX / 2);
 
     if (deltaX >= 0) {
       const clamped = Math.min(100, Math.max(half + 12, 40));
@@ -99,7 +99,7 @@ export class EnemySwarmPlayer {
     }
   }
 
-  attackUpdate(deltaTime: number, shipPos: Vector2) {
+  attackUpdate(deltaTime: number, _shipPos: Vector2) {
     this.updateInflight(deltaTime); // updates pivotAdd over time
 
     this.position.x = this.positionOffset + this.pivotOrigin;
@@ -115,27 +115,26 @@ export class EnemySwarmPlayer {
       this.plan = PlanState.ReturningToSwarm;
       this.isExited = true;
       this.sprite.visible = false;
-
     }
   }
 
   updateInflight(deltaTime: number) {
-    let x = this.pivotOrigin + this.positionOffset;
-    let center = this.pivotOrigin + this.pivotAdd;
-    let amplitude = this.pivotAdd;
-    let stiffness = 0.005;
-    let dampling = 0.94;
-    this.sineOffset += (1/60) * deltaTime;
+    const x = this.pivotOrigin + this.positionOffset;
+    const center = this.pivotOrigin + this.pivotAdd;
+    const amplitude = this.pivotAdd;
+    const stiffness = 0.005;
+    const dampling = 0.94;
+    this.sineOffset += (1 / 60) * deltaTime;
     const target = center + amplitude * Math.sin(this.sineOffset);
     const force = target - x;
     const acceleration = force * stiffness;
 
     this.velocity += acceleration;
     this.velocity *= dampling;
-    let oldX = this.positionOffset;
+    const oldX = this.positionOffset;
     this.positionOffset += this.velocity;
-    let dx = this.positionOffset - oldX;
-    let dy = 1;
+    const dx = this.positionOffset - oldX;
+    const dy = 1;
     const targetAngle = Math.atan2(dy, dx) + Math.PI / 2;
     this.sprite.rotation = targetAngle;
   }
@@ -157,7 +156,7 @@ export class EnemySwarmPlayer {
     return this.isExited;
   }
 
-  readToAttack(shipPos: Vector2) {}
+  readToAttack(_shipPos: Vector2) {}
   public getSprite(): PIXI.Sprite {
     return this.sprite;
   }

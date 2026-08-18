@@ -1,4 +1,11 @@
-import { Ticker, Container, Graphics, AnimatedSprite, Assets, Sprite } from "pixi.js";
+import {
+  Ticker,
+  Container,
+  Graphics,
+  AnimatedSprite,
+  Assets,
+  Sprite
+} from "pixi.js";
 import { engine } from "../../getEngine";
 import { PausePopup } from "../../popups/PausePopup";
 import { CreateEnemyWave, enemyMap } from "../enemy/CreateEnemyWave";
@@ -48,7 +55,7 @@ export class MainScreen extends Container {
     this.mainContainer.addChild(this.playerShip);
     this.enemyAttackController = new EnemyAttackController(
       this.enemyWave,
-      this.playerShip,
+      this.playerShip
     );
     this.registerEvents();
     this.stats = new Stats();
@@ -76,7 +83,7 @@ export class MainScreen extends Container {
         1,
         0,
         this.WIDTH,
-        _time.deltaTime,
+        _time.deltaTime
       );
     }
   }
@@ -169,7 +176,7 @@ export class MainScreen extends Container {
     const xStep = 6.4;
     this.enemyWave.forEach((enemy) => {
       // Don't march if dead or swarming
-      if(enemy.enemyState != ENEMY_STATE.ALIVE_IDLE) {
+      if (enemy.enemyState != ENEMY_STATE.ALIVE_IDLE) {
         return;
       }
       if (this.dirToggle) {
@@ -201,7 +208,7 @@ export class MainScreen extends Container {
     // Position the missile over the top-middle of the player's ship
     const shipTop = this.playerShip.y - (this.playerShip.height / 2 || 8);
     sprite.x = this.playerShip.x;
-    sprite.y = shipTop - (sprite.height / 2);
+    sprite.y = shipTop - sprite.height / 2;
 
     this.mainContainer.addChild(sprite);
     this.playerMissiles.push({ gfx: sprite, speed: 4 });
@@ -210,7 +217,9 @@ export class MainScreen extends Container {
   // Explosion helper (uses spritesheet animation)
   public createExplosion(x: number, y: number): void {
     try {
-      const sheet: any = Assets.get("main/spritesheets/galaxians-spritesheet.json");
+      const sheet: any = Assets.get(
+        "main/spritesheets/galaxians-spritesheet.json"
+      );
       const explodeFrames = sheet.animations["alienExplode"];
       const anim = new AnimatedSprite(explodeFrames);
       anim.animationSpeed = 0.12;
@@ -219,7 +228,9 @@ export class MainScreen extends Container {
       anim.x = x;
       anim.y = y;
       anim.onComplete = () => {
-        try { this.mainContainer.removeChild(anim); } catch (e) {}
+        try {
+          this.mainContainer.removeChild(anim);
+        } catch { /* ignore */ }
       };
       this.mainContainer.addChild(anim);
       anim.play();
@@ -232,7 +243,11 @@ export class MainScreen extends Container {
       gfx.drawCircle(0, 0, 6);
       gfx.endFill();
       this.mainContainer.addChild(gfx);
-      setTimeout(() => { try { this.mainContainer.removeChild(gfx); } catch (e) {} }, 400);
+      setTimeout(() => {
+        try {
+          this.mainContainer.removeChild(gfx);
+        } catch { /* ignore */ }
+      }, 400);
     }
   }
 
@@ -287,9 +302,7 @@ export class MainScreen extends Container {
               this.mainContainer.removeChild(enemy);
             }
             enemy.stop();
-          } catch (err) {
-            // ignore
-          }
+          } catch { /* ignore */ }
 
           // create explosion at enemy position
           this.createExplosion(enemy.x, enemy.y);
@@ -303,7 +316,9 @@ export class MainScreen extends Container {
     });
 
     // Remove missiles from array (reverse order)
-    removeIndices.sort((a, b) => b - a).forEach((i) => this.playerMissiles.splice(i, 1));
+    removeIndices
+      .sort((a, b) => b - a)
+      .forEach((i) => this.playerMissiles.splice(i, 1));
   }
 
   /** Hide screen with animations */
