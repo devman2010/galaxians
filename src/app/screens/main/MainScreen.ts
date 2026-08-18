@@ -26,6 +26,8 @@ export class MainScreen extends Container {
   public stats: Stats;
   // Active player missiles (graphics + speed)
   public playerMissiles: { gfx: Graphics; speed: number }[] = [];
+  // Active explosions (gfx, life elapsed, duration)
+  public explosions: { gfx: Graphics; life: number; duration: number }[] = [];
   // Track space key to fire once per press
   private spacePressedLastFrame: boolean = false;
   // Todo: Clean up
@@ -111,6 +113,9 @@ export class MainScreen extends Container {
     // Update missiles (movement, collisions, cleanup)
     this.updateMissiles(_time.deltaTime);
 
+    // Update explosions (animate and remove)
+    this.updateExplosions(_time.deltaTime);
+
     this.stats.end();
   }
 
@@ -187,13 +192,13 @@ export class MainScreen extends Container {
     }
   }
 
-  // Create and fire a player missile (yellow horizontal line)
+  // Create and fire a player missile (thin vertical yellow line)
   public fireMissile(): void {
-    const missileWidth = 24;
-    const missileHeight = 20; // per preference
+    const missileWidth = 4; // narrow
+    const missileHeight = 20; // tall
     const gfx = new Graphics();
     gfx.beginFill(0xffff00);
-    // drawRect with center alignment for easier positioning
+    // drawRect centered
     gfx.drawRect(-missileWidth / 2, -missileHeight / 2, missileWidth, missileHeight);
     gfx.endFill();
 
@@ -205,6 +210,39 @@ export class MainScreen extends Container {
     this.mainContainer.addChild(gfx);
     // speed in same unit style as other movement (tweak if needed)
     this.playerMissiles.push({ gfx, speed: 4 });
+  }
+
+  // Explosion helper
+  public createExplosion(x: number, y: number, duration: number = 0.4): void {
+    const gfx = new Graphics();
+    gfx.x = x;
+    gfx.y = y;
+    // start tiny
+    gfx.beginFill(0xffcc00);
+    gfx.drawCircle(0, 0, 1);
+    gfx.endFill();
+    this.mainContainer.addChild(gfx);
+    this.explosions.push({ gfx, life: 0, duration });
+  }
+
+  // Update explosions: animate (expand & fade) and remove when done
+  public updateExplosions(deltaTime: number): void {
+    const remove: number[] = [];
+    this.explosions.forEach((e, idx) => {
+      e.life += deltaTime;
+      const t = Math.min(1, e.life / e.duration);
+      const radius = 2 + t * 10;
+      const alpha = 1 - t;
+      e.gfx.clear();
+      e.gfx.beginFill(0xffcc00, alpha);
+      e.gfx.drawCircle(0, 0, radius);
+      e.gfx.endFill();
+      if (e.life >= e.duration) {
+        this.mainContainer.removeChild(e.gfx);
+        remove.push(idx);
+      }
+    });
+    remove.sort((a, b) => b - a).forEach((i) => this.explosions.splice(i, 1));
   }
 
   // Update missiles: move, check collisions, remove offscreen/hits
@@ -231,9 +269,21 @@ export class MainScreen extends Container {
           bounds.y < enemyBounds.y + enemyBounds.height &&
           bounds.y + bounds.height > enemyBounds.y
         ) {
-          // Hit
+          // Hit: mark dead and remove from display
           enemy.enemyState = ENEMY_STATE.DEAD;
-          enemy.visible = false;
+          try {
+            if (this.mainContainer.children.includes(enemy)) {
+              this.mainContainer.removeChild(enemy);
+            }
+            enemy.stop();
+          } catch (err) {
+            // ignore
+          }
+
+          // create explosion at enemy position
+          this.createExplosion(enemy.x, enemy.y);
+
+          // remove missile
           this.mainContainer.removeChild(m.gfx);
           removeIndices.push(idx);
           break;
