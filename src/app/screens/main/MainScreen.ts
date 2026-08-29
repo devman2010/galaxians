@@ -5,7 +5,8 @@ import {
   AnimatedSprite,
   Assets,
   Sprite,
-  Text,
+  BitmapText,
+  BitmapFont,
   TextStyle
 } from "pixi.js";
 import { engine } from "../../getEngine";
@@ -19,6 +20,7 @@ import { EnemyAnimatedSprite } from "../enemy/EnemyAnimatedSprite";
 import { EnemyAttackController } from "../enemy/EnemyAttackController";
 import { ENEMY_STATE } from "../enemy/EnemyData";
 import Stats from "stats.js";
+import { rectsIntersect } from "./EnemyShipCollision";
 
 /** The screen that holds the app */
 export class MainScreen extends Container {
@@ -43,18 +45,24 @@ export class MainScreen extends Container {
   private lives = 3;
   private gameStarted = false;
   private hudContainer: Container;
-  private scoreLabel: Text;
-  private scoreValue: Text;
-  private highScoreLabel: Text;
-  private highScoreValue: Text;
-  private playerLabel: Text;
-  private playerValue: Text;
-  private startPromptText: Text;
+  private scoreLabel: BitmapText;
+  private scoreValue: BitmapText;
+  private highScoreLabel: BitmapText;
+  private highScoreValue: BitmapText;
+  private playerLabel: BitmapText;
+  private playerValue: BitmapText;
+  private creditLabel: BitmapText;
+  private creditValue: BitmapText;
+  private startPromptText: BitmapText;
+  private controlPromptText: BitmapText;
+  private playerLifeIcons: Sprite[] = [];
   private enemyMissileSpawnTimer = 0;
   private creditPressedLastFrame = false;
   private startPressedLastFrame = false;
   private playerRespawnTimer = 0;
   private playerShipExploding = false;
+  private leftHeld: boolean = false;
+  private rightHeld: boolean = false;
   // iPad soft-keyboard helpers
   private kbOverlay?: HTMLDivElement;
   private kbInput?: HTMLInputElement;
@@ -100,63 +108,63 @@ export class MainScreen extends Container {
 
     this.highScore = Number(localStorage.getItem(this.highScoreKey) ?? 0);
     this.hudContainer = new Container();
-    this.scoreLabel = new Text(
-      "1UP",
-      new TextStyle({
-        fill: "#ffffff",
-        fontSize: 7,
-        fontFamily: "monospace",
-        fontWeight: "bold",
-        letterSpacing: 1
-      })
-    );
-    this.scoreValue = new Text(
-      "0",
-      new TextStyle({
-        fill: "#ff0000",
-        fontSize: 12,
-        fontFamily: "monospace",
-        fontWeight: "bold"
-      })
-    );
-    this.highScoreLabel = new Text(
-      "HIGH SCORE",
-      new TextStyle({
-        fill: "#ffffff",
-        fontSize: 7,
-        fontFamily: "monospace",
-        fontWeight: "bold",
-        letterSpacing: 1
-      })
-    );
-    this.highScoreValue = new Text(
-      String(this.highScore),
-      new TextStyle({
-        fill: "#ff0000",
-        fontSize: 12,
-        fontFamily: "monospace",
-        fontWeight: "bold"
-      })
-    );
-    this.playerLabel = new Text(
-      "LIVES",
-      new TextStyle({
-        fill: "#ffffff",
-        fontSize: 7,
-        fontFamily: "monospace",
-        fontWeight: "bold",
-        letterSpacing: 1
-      })
-    );
-    this.playerValue = new Text(
-      "3",
-      new TextStyle({
-        fill: "#ff0000",
-        fontSize: 12,
-        fontFamily: "monospace",
-        fontWeight: "bold"
-      })
-    );
+    // Create bitmap font for crisp pixel text (generated at runtime)
+    try {
+      (BitmapFont as any).from(
+        "arcade",
+        new TextStyle({
+          fill: "#ffffff",
+          fontSize: 8,
+          fontFamily: "monospace",
+          fontWeight: "bold",
+          letterSpacing: 1
+        }),
+        { chars: (BitmapFont as any).ASCII }
+      );
+    } catch {
+      /* ignore */
+    }
+
+    this.scoreLabel = new (BitmapText as any)("1UP", {
+      fontName: "arcade",
+      fontSize: 7
+    });
+    this.scoreLabel.tint = 0xffffff;
+    this.scoreValue = new (BitmapText as any)("0", {
+      fontName: "arcade",
+      fontSize: 12
+    });
+    this.scoreValue.tint = 0xff0000;
+    this.highScoreLabel = new (BitmapText as any)("HIGH SCORE", {
+      fontName: "arcade",
+      fontSize: 7
+    });
+    this.highScoreLabel.tint = 0xffffff;
+    this.highScoreValue = new (BitmapText as any)(String(this.highScore), {
+      fontName: "arcade",
+      fontSize: 12
+    });
+    this.highScoreValue.tint = 0xff0000;
+    this.playerLabel = new (BitmapText as any)("LIVES", {
+      fontName: "arcade",
+      fontSize: 7
+    });
+    this.playerLabel.tint = 0xffffff;
+    this.playerValue = new (BitmapText as any)("3", {
+      fontName: "arcade",
+      fontSize: 12
+    });
+    this.playerValue.tint = 0xff0000;
+    this.creditLabel = new (BitmapText as any)("CREDIT", {
+      fontName: "arcade",
+      fontSize: 7
+    });
+    this.creditLabel.tint = 0xffffff;
+    this.creditValue = new (BitmapText as any)("0", {
+      fontName: "arcade",
+      fontSize: 12
+    });
+    this.creditValue.tint = 0xff0000;
 
     this.scoreLabel.x = 10;
     this.scoreLabel.y = 4;
@@ -166,37 +174,72 @@ export class MainScreen extends Container {
     this.highScoreLabel.y = 4;
     this.highScoreValue.x = 150;
     this.highScoreValue.y = 13;
+    this.creditLabel.x = 10;
+    this.creditLabel.y = 232;
+    this.creditValue.x = 54;
+    this.creditValue.y = 232;
     this.playerLabel.x = 160;
     this.playerLabel.y = 232;
     this.playerValue.x = 200;
     this.playerValue.y = 232;
+    this.playerLabel.visible = false;
+    this.playerValue.visible = false;
+
+    for (let i = 0; i < 3; i++) {
+      const lifeShip = new PlayerShip(0, 0);
+      lifeShip.scale.set(0.5);
+      lifeShip.x = 172 + i * 12;
+      lifeShip.y = 244;
+      this.playerLifeIcons.push(lifeShip);
+      this.hudContainer.addChild(lifeShip);
+    }
 
     this.hudContainer.addChild(
       this.scoreLabel,
       this.scoreValue,
       this.highScoreLabel,
       this.highScoreValue,
+      this.creditLabel,
+      this.creditValue,
       this.playerLabel,
       this.playerValue
     );
     this.mainContainer.addChild(this.hudContainer);
 
-    this.startPromptText = new Text(
-      "PRESS START",
-      new TextStyle({
-        fill: "#ffffff",
+    this.startPromptText = new (BitmapText as any)(
+      "PRESS '1' TO INSERT CREDIT",
+      {
+        fontName: "arcade",
         fontSize: 10,
-        fontFamily: "monospace",
-        fontWeight: "bold",
-        letterSpacing: 1,
         align: "center"
-      })
+      }
     );
-    this.startPromptText.anchor.set(0.5);
+    // center it using pivot (BitmapText doesn't have anchor)
+    this.startPromptText.pivot.set(
+      this.startPromptText.width / 2,
+      this.startPromptText.height / 2
+    );
     this.startPromptText.x = this.WIDTH / 2;
     this.startPromptText.y = 120;
     this.startPromptText.visible = true;
-    this.mainContainer.addChild(this.startPromptText);
+
+    this.controlPromptText = new (BitmapText as any)(
+      "SHIP CONTROLS, O FOR LEFT AND P FOR RIGHT. SPACE TO FIRE.",
+      {
+        fontName: "arcade",
+        fontSize: 10,
+        align: "center"
+      }
+    );
+    // remove maxWidth since BitmapText typing doesn't include it; keep single-line
+    this.controlPromptText.pivot.set(
+      this.controlPromptText.width / 2,
+      this.controlPromptText.height / 2
+    );
+    this.controlPromptText.x = this.WIDTH / 2;
+    this.controlPromptText.y = 138;
+    this.controlPromptText.visible = true;
+    this.mainContainer.addChild(this.startPromptText, this.controlPromptText);
 
     this.playerShip = new PlayerShip(this.WIDTH / 2, this.HEIGHT - 16);
     this.mainContainer.addChild(this.playerShip);
@@ -220,16 +263,59 @@ export class MainScreen extends Container {
   }
 
   public registerEvents() {
-    window.addEventListener("keydown", (e) => (this.keys[e.code] = true));
-    window.addEventListener("keyup", (e) => (this.keys[e.code] = false));
+    window.addEventListener("keydown", (e) => {
+      this.keys[e.code] = true;
+      const mapped = this.mapDirectionalKey(e.key);
+      if (mapped) {
+        this.keys[mapped] = true;
+      }
+
+      // explicit held-key flags for O/P for robust held behavior (works on iPad/desktop)
+      const k = (e.key || "").toLowerCase();
+      if (k === "o") this.leftHeld = true;
+      if (k === "p") this.rightHeld = true;
+    });
+
+    window.addEventListener("keyup", (e) => {
+      this.keys[e.code] = false;
+      const mapped = this.mapDirectionalKey(e.key);
+      if (mapped) {
+        this.keys[mapped] = false;
+      }
+
+      const k = (e.key || "").toLowerCase();
+      if (k === "o") this.leftHeld = false;
+      if (k === "p") this.rightHeld = false;
+    });
+  }
+
+  private mapDirectionalKey(key: string): "ArrowLeft" | "ArrowRight" | null {
+    const normalized = key.toLowerCase();
+    if (
+      normalized === "o" ||
+      normalized === "arrowleft" ||
+      normalized === "keyo" ||
+      normalized === "<"
+    ) {
+      return "ArrowLeft";
+    }
+    if (
+      normalized === "p" ||
+      normalized === "arrowright" ||
+      normalized === "keyp" ||
+      normalized === ">"
+    ) {
+      return "ArrowRight";
+    }
+    return null;
   }
 
   public updatePlayerShipPosition(_time: Ticker) {
     let direction = "";
 
-    if (this.keys["ArrowLeft"]) {
+    if (this.leftHeld || this.keys["ArrowLeft"]) {
       direction = "left";
-    } else if (this.keys["ArrowRight"]) {
+    } else if (this.rightHeld || this.keys["ArrowRight"]) {
       direction = "right";
     }
     if (direction !== "") {
@@ -268,11 +354,19 @@ export class MainScreen extends Container {
         this.playerShip.x = this.WIDTH / 2;
         this.playerShip.y = this.HEIGHT - 16;
         this.playerShipExploding = false;
+        this.updateLivesHud();
       }
     }
 
     if (!this.gameStarted) {
       this.startPromptText.visible = true;
+      this.controlPromptText.visible = true;
+      this.startPromptText.text = (
+        this.credits > 0 ? "PRESS 'S' TO START" : "PRESS '1' TO INSERT CREDIT"
+      ).toUpperCase();
+      this.controlPromptText.text =
+        "SHIP CONTROLS, O FOR LEFT AND P FOR RIGHT. SPACE TO FIRE.".toUpperCase();
+      this.controlPromptText.text = this.controlPromptText.text.toUpperCase();
       const creditPressed = this.keys["Digit1"] || this.keys["Numpad1"];
       if (creditPressed) {
         if (!this.creditPressedLastFrame) {
@@ -298,6 +392,10 @@ export class MainScreen extends Container {
     }
 
     this.startPromptText.visible = false;
+    this.controlPromptText.visible = false;
+
+    // Check collisions between enemies and the player ship
+    this.checkEnemyShipCollisions();
 
     if (this.waveResetTimer > 0) {
       this.waveResetTimer = Math.max(
@@ -364,11 +462,23 @@ export class MainScreen extends Container {
   }
 
   private updateCreditHud(): void {
-    // credit display intentionally hidden to match the requested arcade presentation
+    const showCreditHud = !this.gameStarted;
+    this.creditLabel.visible = showCreditHud;
+    this.creditValue.visible = showCreditHud;
+    this.creditValue.text = String(Math.max(0, this.credits));
+    this.playerValue.text = String(Math.max(0, this.lives));
+    if (!this.gameStarted) {
+      this.startPromptText.text = (
+        this.credits > 0 ? "PRESS 'S' TO START" : "PRESS '1' TO INSERT CREDIT"
+      ).toUpperCase();
+    }
   }
 
   private updateLivesHud(): void {
     this.playerValue.text = String(Math.max(0, this.lives));
+    this.playerLifeIcons.forEach((ship, index) => {
+      ship.visible = index < Math.max(0, this.lives);
+    });
   }
 
   private centerWaveForAttractMode(): void {
@@ -393,6 +503,11 @@ export class MainScreen extends Container {
   private setAttractMode(): void {
     this.gameStarted = false;
     this.startPromptText.visible = true;
+    this.controlPromptText.visible = true;
+    this.startPromptText.text = (
+      this.credits > 0 ? "PRESS 'S' TO START" : "PRESS '1' TO INSERT CREDIT"
+    ).toUpperCase();
+    this.updateLivesHud();
     try {
       const bgm = engine().audio.bgm;
       if (bgm?.current) {
@@ -530,6 +645,111 @@ export class MainScreen extends Container {
         if (this.kbOverlay) this.kbOverlay.style.display = "none";
       });
 
+      // On-screen touch controls for iPad (left/right) to support held movement
+      const createTouchButton = (
+        label: string,
+        left: number,
+        bottom: number
+      ) => {
+        const btn = document.createElement("div");
+        btn.innerText = label;
+        Object.assign(btn.style, {
+          position: "fixed",
+          left: `${left}px`,
+          bottom: `${bottom}px`,
+          width: "64px",
+          height: "64px",
+          background: "rgba(0,0,0,0.3)",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "8px",
+          zIndex: "9998",
+          fontFamily: "monospace",
+          userSelect: "none"
+        } as any);
+        document.body.appendChild(btn);
+        return btn;
+      };
+
+      const leftBtn = createTouchButton("O", 12, 12);
+      const rightBtn = createTouchButton("P", 88, 12);
+
+      const touchStartLeft = (ev: any) => {
+        ev.preventDefault?.();
+        this.leftHeld = true;
+      };
+      const touchEndLeft = (ev: any) => {
+        ev.preventDefault?.();
+        this.leftHeld = false;
+      };
+      const touchStartRight = (ev: any) => {
+        ev.preventDefault?.();
+        this.rightHeld = true;
+      };
+      const touchEndRight = (ev: any) => {
+        ev.preventDefault?.();
+        this.rightHeld = false;
+      };
+
+      leftBtn.addEventListener("touchstart", touchStartLeft, {
+        passive: false
+      });
+      leftBtn.addEventListener("mousedown", touchStartLeft);
+      leftBtn.addEventListener("touchend", touchEndLeft);
+      leftBtn.addEventListener("touchcancel", touchEndLeft);
+      leftBtn.addEventListener("mouseup", touchEndLeft);
+
+      rightBtn.addEventListener("touchstart", touchStartRight, {
+        passive: false
+      });
+      rightBtn.addEventListener("mousedown", touchStartRight);
+      rightBtn.addEventListener("touchend", touchEndRight);
+      rightBtn.addEventListener("touchcancel", touchEndRight);
+      rightBtn.addEventListener("mouseup", touchEndRight);
+
+      // Hide/show touch buttons along with the overlay depending on portrait
+      // Keep touch buttons available even when soft keyboard is open so users can hold them.
+      const m = window.matchMedia("(orientation: portrait)");
+      const updateOverlay = () => {
+        if (!this.kbOverlay) return;
+        const vv = (window as any).visualViewport;
+        const keyboardOpen = !!vv && vv.height < window.innerHeight * 0.82;
+        const show = m.matches && !keyboardOpen;
+        this.kbOverlay.style.display = show ? "block" : "none";
+      };
+      try {
+        m.addEventListener("change", updateOverlay);
+      } catch {
+        if ((m as any).addListener) (m as any).addListener(updateOverlay);
+      }
+      window.addEventListener("resize", updateOverlay);
+
+      const updateTouchButtonsVisibility = () => {
+        const show = m.matches; // portrait => show on-screen controls
+        leftBtn.style.display = show ? "flex" : "none";
+        rightBtn.style.display = show ? "flex" : "none";
+      };
+      try {
+        m.addEventListener("change", updateTouchButtonsVisibility);
+      } catch {
+        if ((m as any).addListener)
+          (m as any).addListener(updateTouchButtonsVisibility);
+      }
+      window.addEventListener("resize", updateOverlay);
+      if ((window as any).visualViewport) {
+        (window as any).visualViewport.addEventListener(
+          "resize",
+          updateTouchButtonsVisibility
+        );
+        (window as any).visualViewport.addEventListener(
+          "scroll",
+          updateTouchButtonsVisibility
+        );
+      }
+      updateTouchButtonsVisibility();
+
       this.kbInput.addEventListener("input", () => {
         if (!this.kbInput) return;
         const v = this.kbInput.value;
@@ -537,12 +757,12 @@ export class MainScreen extends Container {
         const ch = v.slice(-1).toLowerCase();
 
         // Map soft-key input to game keys (short tap behaviour)
-        if (ch === "a") {
-          this.keys["ArrowLeft"] = true;
-          setTimeout(() => (this.keys["ArrowLeft"] = false), 120);
-        } else if (ch === "d") {
-          this.keys["ArrowRight"] = true;
-          setTimeout(() => (this.keys["ArrowRight"] = false), 120);
+        if (ch === "o" || ch === "a" || ch === "<") {
+          // start hold; soft keyboard does not reliably generate repeated input, so
+          // emulate hold by toggling leftHeld until blur or explicit clear
+          this.leftHeld = true;
+        } else if (ch === "p" || ch === "d" || ch === ">") {
+          this.rightHeld = true;
         } else if (ch === " " || ch === "s") {
           this.keys["Space"] = true;
           setTimeout(() => (this.keys["Space"] = false), 120);
@@ -552,31 +772,60 @@ export class MainScreen extends Container {
         this.kbInput.value = "";
       });
 
-      const m = window.matchMedia("(orientation: portrait)");
-      const updateOverlay = () => {
-        if (!this.kbOverlay) return;
-        this.kbOverlay.style.display = m.matches ? "block" : "none";
-      };
-      try {
-        m.addEventListener("change", updateOverlay);
-      } catch {
-        // older Safari fallback
-        if ((m as any).addListener) (m as any).addListener(updateOverlay);
-      }
+      // When the input loses focus (keyboard dismissed) clear holds
+      this.kbInput.addEventListener("blur", () => {
+        this.leftHeld = false;
+        this.rightHeld = false;
+      });
 
       const syncViewportForKeyboard = () => {
         const vv = (window as any).visualViewport;
-        if (!vv) return;
+        const viewportWidth = Math.max(
+          224,
+          Math.round((vv?.width ?? window.innerWidth) || window.innerWidth)
+        );
+        const viewportHeight = Math.max(
+          256,
+          Math.round((vv?.height ?? window.innerHeight) || window.innerHeight)
+        );
+        const app = engine();
+        const gameAspect = this.WIDTH / this.HEIGHT;
+        let fitWidth = viewportWidth;
+        let fitHeight = viewportHeight;
 
-        const visibleHeight = Math.max(320, Math.round(vv.height));
-        const width = Math.max(320, Math.round(vv.width || window.innerWidth));
+        if (fitWidth / fitHeight > gameAspect) {
+          fitWidth = fitHeight * gameAspect;
+        } else {
+          fitHeight = fitWidth / gameAspect;
+        }
+
+        const contentWidth = Math.round(fitWidth);
+        const contentHeight = Math.round(fitHeight);
+        const offsetX = Math.round((viewportWidth - contentWidth) / 2);
+        const offsetY = Math.round((viewportHeight - contentHeight) / 2);
 
         try {
-          engine().renderer.resize(width, visibleHeight);
-          engine().navigation.resize(width, visibleHeight);
+          const container = document.getElementById("pixi-container");
+          if (container) {
+            container.style.position = "fixed";
+            container.style.left = "0px";
+            container.style.top = `${Math.round(vv?.offsetTop ?? 0)}px`;
+            container.style.width = `${viewportWidth}px`;
+            container.style.height = `${viewportHeight}px`;
+          }
+
+          app.renderer.canvas.style.position = "absolute";
+          app.renderer.canvas.style.left = `${offsetX}px`;
+          app.renderer.canvas.style.top = `${offsetY}px`;
+          app.renderer.canvas.style.width = `${contentWidth}px`;
+          app.renderer.canvas.style.height = `${contentHeight}px`;
+          app.renderer.resize(contentWidth, contentHeight);
+          app.navigation.resize(contentWidth, contentHeight);
         } catch {
           /* ignore */
         }
+
+        updateOverlay();
       };
 
       if ((window as any).visualViewport) {
@@ -637,6 +886,8 @@ export class MainScreen extends Container {
   }
 
   private resetWave(): void {
+    // ensure life icons reflect current lives when wave resets
+    this.updateLivesHud();
     this.playerMissiles.forEach((missile) => {
       if (missile.gfx.parent) {
         missile.gfx.parent.removeChild(missile.gfx);
@@ -857,6 +1108,8 @@ export class MainScreen extends Container {
   }
 
   private losePlayerLife(): void {
+    // update life icons when a life is lost
+    this.updateLivesHud();
     if (this.playerShipExploding) return;
     this.playerShipExploding = true;
     this.lives = Math.max(0, this.lives - 1);
@@ -964,6 +1217,67 @@ export class MainScreen extends Container {
       0.45,
       1.7 - this.waveNumber * 0.06 - this.enemyWave.length * 0.01
     );
+  }
+
+  /** Check for collisions between active enemies and the player ship.
+   * Uses bounding-box intersection (sufficient for arcade feel). When an enemy
+   * overlaps the player's ship, the enemy is marked dead and removed and the
+   * player loses a life (explodes). This prevents multiple life losses in the
+   * same frame by relying on losePlayerLife() guarding against repeated calls.
+   */
+  private checkEnemyShipCollisions(): void {
+    if (!this.playerShip || this.playerShip.visible === false) return;
+    const shipBounds = this.playerShip.getBounds();
+
+    for (const enemy of this.enemyWave) {
+      if (
+        !enemy ||
+        !enemy.visible ||
+        !enemy.parent ||
+        enemy.enemyState === ENEMY_STATE.DEAD ||
+        enemy.enemyState === ENEMY_STATE.DYING
+      ) {
+        continue;
+      }
+
+      try {
+        const eb = enemy.getBounds();
+        if (rectsIntersect(eb, shipBounds)) {
+          // Mark enemy dying/dead and remove it from stage to prevent repeat hits
+          try {
+            enemy.enemyState = ENEMY_STATE.DYING;
+            if (enemy.parent) enemy.parent.removeChild(enemy);
+            enemy.stop();
+          } catch {
+            /* ignore */
+          }
+
+          try {
+            // Notify controller so it doesn't keep tracking this enemy
+            this.enemyAttackController.notifyEnemyKilled(enemy);
+          } catch {
+            /* ignore */
+          }
+
+          // Cause the player to lose a life / explode. losePlayerLife guards
+          // against being called multiple times if already exploding.
+          this.losePlayerLife();
+
+          // Create a quick explosion at the enemy position for feedback
+          try {
+            this.createExplosion(enemy.x, enemy.y);
+          } catch {
+            /* ignore */
+          }
+
+          // Once a collision has been processed, skip checking further enemies
+          // this frame to avoid multiple simultaneous life losses.
+          break;
+        }
+      } catch {
+        /* ignore bounds errors */
+      }
+    }
   }
 
   // Update missiles: move, check collisions, remove offscreen/hits
