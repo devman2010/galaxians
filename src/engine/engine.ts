@@ -52,7 +52,7 @@ export class CreationEngine extends Application {
     // List all existing bundles names
     const allBundles = manifest.bundles.map((item: any) => item.name);
     // Start up background loading of all bundles
-    Assets.backgroundLoadBundle(allBundles);
+    await Assets.backgroundLoadBundle(allBundles);
     (globalThis as any).__PIXI_APP__ = this;
   }
 

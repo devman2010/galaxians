@@ -16,7 +16,7 @@ export class StarBackground extends Container {
   private stageHeight: number;
   private speed: number;
   private readonly colors = [
-    0x9fe7ff, 0x9ae7ff, 0xffd98e, 0xffa7d6, 0xbea9ff, 0xd5ffd8, 0xffffff,
+    0xff0000, 0x00ff00, 0x0000ff, 0xffa7d6, 0xbea9ff, 0xd5ffd8, 0xffffff,
     0x7af0c9, 0xff9a7a, 0xc7f0ff
   ];
 
@@ -28,9 +28,9 @@ export class StarBackground extends Container {
 
     for (let i = 0; i < starCount; i++) {
       const star = new Graphics() as TwinklingStar;
-      const size = Math.random() * 0.9 + 0.4;
+      const size = Math.random() * 0.5 + 0.4;
       const color = this.colors[Math.floor(Math.random() * this.colors.length)];
-      const alpha = Math.random() * 0.7 + 0.2;
+      const alpha = Math.random() * 0.8 + 0.2;
       star.beginFill(color, alpha);
       star.drawRect(-size / 2, -size / 2, size, size);
       star.endFill();
@@ -77,7 +77,7 @@ export class StarBackground extends Container {
       if (star.y > this.stageHeight) {
         star.y = -2;
         star.x = Math.random() * this.stageWidth;
-        star.userData.baseAlpha = 0.2 + Math.random() * 0.7;
+        star.userData.baseAlpha = 0.2 + Math.random() * 0.8;
         star.userData.size = Math.random() * 0.9 + 0.4;
         star.userData.color =
           this.colors[Math.floor(Math.random() * this.colors.length)];

@@ -64,14 +64,12 @@ export function randomRange(
   const a = Math.min(min, max);
   const b = Math.max(min, max);
 
-  const v = a + (b - a) * random();
-
-  return v;
+  return a + (b - a) * random();
 }
 
 /**
  * Returns a random item from an object or array
- * @param arr - array to be selected
+ * @param obj
  * @param random - The random function to be used (defaults to Math.random)
  */
 export function randomItem<T>(obj: T, random = Math.random): T[keyof T] {
@@ -120,6 +118,7 @@ export function randomShuffle<T>(array: T[], random = Math.random): T[] {
  * Return a random string hash - not guaranteed to be unique
  * @param length - The length of the hash
  * @param random - The random function to be used (defaults to Math.random)
+ * @param charset
  * @returns
  */
 export function randomHash(
@@ -142,6 +141,7 @@ export function randomHash(
  *
  * @param min - The minimum value (inclusive).
  * @param max - The maximum value (exclusive).
+ * @param random
  */
 export function randomFloat(min: number, max: number, random = Math.random) {
   return random() * (max - min) + min;

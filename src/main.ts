@@ -21,7 +21,7 @@ setEngine(engine);
     // width: 384, // Width of the application
     // height: 264,
     backgroundColor: 0x000000, // Background color
-    antialias: true, // Enable antialiasing
+    antialias: false, // Enable antialiasing
     resolution: 1, // Resolution / device pixel ratio
     preference: "webgl", // or 'webgpu' // Renderer preference
     sharedTicker: false, // Use a shared ticker

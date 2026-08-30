@@ -48,7 +48,7 @@ export class CreationResizePlugin {
 
   /**
    * Initialize the plugin with scope of application instance
-   * @param {object} [options] - See application options
+   * @param [options] - See application options
    */
   public static init(options: ApplicationOptions): void {
     const app = this as unknown as Application;

@@ -20,11 +20,7 @@ export class CreateEnemyWave {
           const enemy = CreateEnemy.create(enemyType);
           enemy.row = rows;
           enemy.col = cols;
-          if (cols <= 4) {
-            enemy.leftSide = true;
-          } else {
-            enemy.leftSide = false;
-          }
+          enemy.leftSide = cols <= 4;
           enemy.baseX = enemy.x = xpos;
           enemy.baseY = enemy.y = ypos;
           enemy.gotoAndStop(index % enemy.totalFrames);

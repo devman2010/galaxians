@@ -69,11 +69,9 @@ export class EnemySwarmPlayer {
     const half = Math.floor(deltaX / 2);
 
     if (deltaX >= 0) {
-      const clamped = Math.min(100, Math.max(half + 12, 40));
-      this.pivotAdd = clamped;
+      this.pivotAdd = Math.min(100, Math.max(half + 12, 40));
     } else {
-      const clamped = Math.min(-40, Math.max(deltaX / 2 - 12, -100));
-      this.pivotAdd = clamped;
+      this.pivotAdd = Math.min(-40, Math.max(deltaX / 2 - 12, -100));
     }
 
     // Compute pivot origin around screen width: pivot = (screenWidth - posX) + pivotAdd
@@ -139,8 +137,7 @@ export class EnemySwarmPlayer {
     this.positionOffset += this.velocity;
     const dx = this.positionOffset - oldX;
     const dy = 1;
-    const targetAngle = Math.atan2(dy, dx) + Math.PI / 2;
-    this.sprite.rotation = targetAngle;
+    this.sprite.rotation = Math.atan2(dy, dx) + Math.PI / 2;
   }
 
   public startSwarm() {

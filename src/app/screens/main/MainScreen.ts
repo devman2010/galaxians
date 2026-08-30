@@ -1,24 +1,24 @@
 import {
-  Ticker,
-  Container,
-  Graphics,
   AnimatedSprite,
   Assets,
-  Sprite,
-  BitmapText,
   BitmapFont,
-  TextStyle
+  BitmapText,
+  Container,
+  Graphics,
+  Sprite,
+  TextStyle,
+  TexturePool,
+  Ticker
 } from "pixi.js";
 import { engine } from "../../getEngine";
 import { PausePopup } from "../../popups/PausePopup";
 import { CreateEnemyWave, enemyMap } from "../enemy/CreateEnemyWave";
-import { TexturePool } from "pixi.js";
 import { StarBackground } from "./StarBackground";
 import { PlayerShipMove } from "../player/PlayerShipMove";
 import { PlayerShip } from "../player/PlayerShip";
 import { EnemyAnimatedSprite } from "../enemy/EnemyAnimatedSprite";
 import { EnemyAttackController } from "../enemy/EnemyAttackController";
-import { ENEMY_STATE } from "../enemy/EnemyData";
+import {ENEMY_STATE, ENEMY_TYPE} from "../enemy/EnemyData";
 import Stats from "stats.js";
 import { rectsIntersect } from "./EnemyShipCollision";
 
@@ -210,7 +210,7 @@ export class MainScreen extends Container {
       "PRESS '1' TO INSERT CREDIT",
       {
         fontName: "arcade",
-        fontSize: 10,
+        fontSize: 8,
         align: "center"
       }
     );
@@ -224,14 +224,16 @@ export class MainScreen extends Container {
     this.startPromptText.visible = true;
 
     this.controlPromptText = new (BitmapText as any)(
-      "SHIP CONTROLS, O FOR LEFT AND P FOR RIGHT. SPACE TO FIRE.",
+      "SHIP CONTROLS\nO FOR LEFT AND P FOR RIGHT\nSPACE TO FIRE",
       {
         fontName: "arcade",
-        fontSize: 10,
-        align: "center"
+        fontSize: 8,
+        align: "center",
+        wordWrap: true,
+        wordWrapWidth: this.WIDTH - 8,
+        lineHeight: 10
       }
     );
-    // remove maxWidth since BitmapText typing doesn't include it; keep single-line
     this.controlPromptText.pivot.set(
       this.controlPromptText.width / 2,
       this.controlPromptText.height / 2
@@ -365,8 +367,7 @@ export class MainScreen extends Container {
         this.credits > 0 ? "PRESS 'S' TO START" : "PRESS '1' TO INSERT CREDIT"
       ).toUpperCase();
       this.controlPromptText.text =
-        "SHIP CONTROLS, O FOR LEFT AND P FOR RIGHT. SPACE TO FIRE.".toUpperCase();
-      this.controlPromptText.text = this.controlPromptText.text.toUpperCase();
+        "SHIP CONTROLS\nO FOR LEFT AND P FOR RIGHT\nSPACE TO FIRE".toUpperCase();
       const creditPressed = this.keys["Digit1"] || this.keys["Numpad1"];
       if (creditPressed) {
         if (!this.creditPressedLastFrame) {
@@ -445,14 +446,13 @@ export class MainScreen extends Container {
     if (this.enemyWave.length === 0) return false;
 
     return this.enemyWave.every((enemy) => {
-      const deadOrGone =
+      return (
         enemy.enemyState === ENEMY_STATE.DEAD ||
         enemy.enemyState === ENEMY_STATE.DYING ||
         enemy.enemyState === ENEMY_STATE.END_ATTACK_SWARM ||
         !enemy.visible ||
-        !enemy.parent;
-
-      return deadOrGone;
+        !enemy.parent
+      );
     });
   }
 
@@ -1226,7 +1226,7 @@ export class MainScreen extends Container {
    * same frame by relying on losePlayerLife() guarding against repeated calls.
    */
   private checkEnemyShipCollisions(): void {
-    if (!this.playerShip || this.playerShip.visible === false) return;
+    if (!this.playerShip || !this.playerShip.visible) return;
     const shipBounds = this.playerShip.getBounds();
 
     for (const enemy of this.enemyWave) {
@@ -1312,7 +1312,11 @@ export class MainScreen extends Container {
           // Hit: mark as dying and remove from display
           enemy.enemyState = ENEMY_STATE.DYING;
           this.addScoreForEnemy(enemy);
-          this.playSound("main/sounds/07. Hit Enemy.mp3");
+          if (enemy.enemyType === ENEMY_TYPE.YELLOW) {
+            this.playSound("main/sounds/08. Hit Boss.mp3");
+          } else {
+            this.playSound("main/sounds/07. Hit Enemy.mp3");
+          }
           try {
             if (this.mainContainer.children.includes(enemy)) {
               this.mainContainer.removeChild(enemy);
