@@ -750,6 +750,10 @@ export class MainScreen extends Container {
       }
       updateTouchButtonsVisibility();
 
+      // Hold emulation timers: short timeout after last soft-key input to clear hold.
+      const HOLD_TIMEOUT = 220; // ms
+      const holdTimers: { left?: number; right?: number } = {};
+
       this.kbInput.addEventListener("input", () => {
         if (!this.kbInput) return;
         const v = this.kbInput.value;
@@ -758,11 +762,20 @@ export class MainScreen extends Container {
 
         // Map soft-key input to game keys (short tap behaviour)
         if (ch === "o" || ch === "a" || ch === "<") {
-          // start hold; soft keyboard does not reliably generate repeated input, so
-          // emulate hold by toggling leftHeld until blur or explicit clear
+          // emulate hold: set leftHeld and reset timer
           this.leftHeld = true;
+          if (holdTimers.left) window.clearTimeout(holdTimers.left);
+          holdTimers.left = window.setTimeout(() => {
+            this.leftHeld = false;
+            holdTimers.left = undefined;
+          }, HOLD_TIMEOUT);
         } else if (ch === "p" || ch === "d" || ch === ">") {
           this.rightHeld = true;
+          if (holdTimers.right) window.clearTimeout(holdTimers.right);
+          holdTimers.right = window.setTimeout(() => {
+            this.rightHeld = false;
+            holdTimers.right = undefined;
+          }, HOLD_TIMEOUT);
         } else if (ch === " " || ch === "s") {
           this.keys["Space"] = true;
           setTimeout(() => (this.keys["Space"] = false), 120);
@@ -776,9 +789,20 @@ export class MainScreen extends Container {
       this.kbInput.addEventListener("blur", () => {
         this.leftHeld = false;
         this.rightHeld = false;
+        if (holdTimers.left) window.clearTimeout(holdTimers.left);
+        if (holdTimers.right) window.clearTimeout(holdTimers.right);
+        holdTimers.left = undefined;
+        holdTimers.right = undefined;
       });
 
-      const syncViewportForKeyboard = () => {
+      // Throttled viewport sync to avoid frequent heavy canvas resizes which cause stutter
+      let lastSync = 0;
+      const SYNC_THROTTLE_MS = 100;
+      const doSyncViewportForKeyboard = () => {
+        const now = Date.now();
+        if (now - lastSync < SYNC_THROTTLE_MS) return;
+        lastSync = now;
+
         const vv = (window as any).visualViewport;
         const viewportWidth = Math.max(
           224,
@@ -831,14 +855,15 @@ export class MainScreen extends Container {
       if ((window as any).visualViewport) {
         (window as any).visualViewport.addEventListener(
           "resize",
-          syncViewportForKeyboard
+          doSyncViewportForKeyboard
         );
         (window as any).visualViewport.addEventListener(
           "scroll",
-          syncViewportForKeyboard
+          doSyncViewportForKeyboard
         );
       }
-      syncViewportForKeyboard();
+      // initial sync
+      doSyncViewportForKeyboard();
       updateOverlay();
     } catch {
       /* ignore */
