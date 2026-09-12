@@ -23,6 +23,11 @@ export class CreateEnemyWave {
           enemy.leftSide = cols <= 4;
           enemy.baseX = enemy.x = xpos;
           enemy.baseY = enemy.y = ypos;
+          // store the formation slot for respawn calculations
+          enemy.formationX = enemy.baseX;
+          enemy.formationY = enemy.baseY;
+          // Remember the original index in the wave so respawns can restore array ordering
+          enemy.formationIndex = wave.length;
           enemy.gotoAndStop(index % enemy.totalFrames);
           wave.push(enemy);
         }

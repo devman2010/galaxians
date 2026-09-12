@@ -27,6 +27,7 @@ html, body {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    background-color: #000000; /* ensure canvas clear color is black */
 }
 
 #app {

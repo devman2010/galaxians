@@ -192,23 +192,17 @@ export class EnemyAttackController {
             break;
 
           case ENEMY_STATE.END_ATTACK_SWARM:
+            // Remove tracking and mark for respawn. Do not destroy textures or
+            // permanently remove the sprite from the scene here — the main
+            // screen will handle re-adding/respawning so formation positions are
+            // preserved.
             this.enemySwarmTracker.removeEnemy(enemy);
             this.attackSwarm = this.attackSwarm.filter(
               (thisEnemy) => thisEnemy.getSprite() !== enemy
             );
-            try {
-              // avoid destroying shared textures — just stop and hide
-              enemy.stop();
-            } catch {
-              /* ignore */
-            }
-            try {
-              if (enemy.parent) enemy.parent.removeChild(enemy);
-            } catch {
-              /* ignore */
-            }
+            // Hide sprite for now; main screen will make it visible and animate
+            // it back to its formation position when appropriate.
             enemy.visible = false;
-            console.log("Removing Enemy!");
             break;
 
           case ENEMY_STATE.DYING:

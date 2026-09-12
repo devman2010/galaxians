@@ -18,7 +18,7 @@ import { PlayerShipMove } from "../player/PlayerShipMove";
 import { PlayerShip } from "../player/PlayerShip";
 import { EnemyAnimatedSprite } from "../enemy/EnemyAnimatedSprite";
 import { EnemyAttackController } from "../enemy/EnemyAttackController";
-import {ENEMY_STATE, ENEMY_TYPE} from "../enemy/EnemyData";
+import { ENEMY_STATE, ENEMY_TYPE } from "../enemy/EnemyData";
 import Stats from "stats.js";
 import { rectsIntersect } from "./EnemyShipCollision";
 
@@ -63,9 +63,6 @@ export class MainScreen extends Container {
   private playerShipExploding = false;
   private leftHeld: boolean = false;
   private rightHeld: boolean = false;
-  // iPad soft-keyboard helpers
-  private kbOverlay?: HTMLDivElement;
-  private kbInput?: HTMLInputElement;
   // Active player missiles (sprite + speed)
   public playerMissiles: { gfx: Sprite; speed: number }[] = [];
   // Active enemy missiles (sprite + speed + drift)
@@ -256,9 +253,9 @@ export class MainScreen extends Container {
     this.stats = new Stats();
     this.stats.showPanel(2);
     document.body.appendChild(this.stats.dom);
-    // Init iPad keyboard helper (shows overlay in portrait to open soft keyboard)
+    // Init on-screen touch buttons for touch devices (no virtual soft-keyboard)
     try {
-      this.initKeyboardForiPad();
+      this.initTouchButtons();
     } catch {
       /* ignore */
     }
@@ -266,6 +263,15 @@ export class MainScreen extends Container {
 
   public registerEvents() {
     window.addEventListener("keydown", (e) => {
+      // Prevent page scrolling or other default actions when firing with Space
+      if (e.code === "Space" || e.key === " ") {
+        try {
+          e.preventDefault?.();
+        } catch {
+          /* ignore */
+        }
+      }
+
       this.keys[e.code] = true;
       const mapped = this.mapDirectionalKey(e.key);
       if (mapped) {
@@ -426,6 +432,143 @@ export class MainScreen extends Container {
     }
 
     this.enemyAttackController.update(_time.deltaTime);
+
+    // Respawn enemies that finished their swarm attack: move them back to
+    // their original formation by scrolling in from the top. We attempt to
+    // preserve the formation X offset created while the swarm was active so
+    // enemies land above where the formation currently is and then slowly
+    // settle back to their original formationX.
+    this.enemyWave.forEach((enemy) => {
+      try {
+        if (
+          enemy.enemyState === ENEMY_STATE.END_ATTACK_SWARM &&
+          !(enemy as any)._isRespawning
+        ) {
+          // Compute a global marching offset across alive idle enemies so the
+          // respawn aligns with the formation's current horizontal movement.
+          const marchingPeers = this.enemyWave.filter(
+            (e) => e !== enemy && e.enemyState === ENEMY_STATE.ALIVE_IDLE
+          );
+          let marchingOffset = 0;
+          if (marchingPeers.length > 0) {
+            const diffs = marchingPeers.map(
+              (e) => e.baseX - (e as any).formationX || 0
+            );
+            marchingOffset = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+          }
+
+          const formationX = (enemy as any).formationX ?? enemy.baseX;
+          const landingX = formationX + marchingOffset;
+          const jitter = (((enemy as any).formationIndex ?? 0) % 3) - 1; // -1,0,1
+          const spawnX = landingX + jitter * 6;
+
+          // Store targets: spawnX is where the sprite appears; landingX is
+          // where it will snap to when descending; settleTarget is the
+          // original formationX to which the sprite should slowly return.
+          (enemy as any).respawnSpawnX = spawnX;
+          (enemy as any).respawnLandingX = landingX;
+          (enemy as any).respawnSettleTarget = formationX;
+          (enemy as any).respawnTargetFormationY =
+            (enemy as any).formationY ?? enemy.baseY;
+          (enemy as any).settleActive = true;
+
+          // mark respawn guarded so it isn't retriggered by controller updates
+          (enemy as any)._isRespawning = true;
+          enemy.enemyState = ENEMY_STATE.RESPAWNING;
+          // place visually at the computed spawn X; baseX is left unchanged and
+          // will be set to landingX on final snap so marching logic stays correct
+          enemy.x = spawnX;
+          enemy.y = -32 - (((enemy as any).formationIndex ?? 0) % 4) * 10; // stagger start Y for simultaneous respawns
+          enemy.visible = true;
+          if (!enemy.parent) this.mainContainer.addChild(enemy);
+        } else if (
+          enemy.enemyState === ENEMY_STATE.RESPAWNING &&
+          (enemy as any)._isRespawning
+        ) {
+          const respawnSpeed = 0.7; // tune as needed
+          enemy.y += respawnSpeed * _time.deltaTime;
+          const targetY =
+            (enemy as any).respawnTargetFormationY ??
+            (enemy as any).formationY ??
+            enemy.baseY;
+          if (enemy.y >= targetY) {
+            // Snap to formation Y and ensure we use the stored formation X so
+            // the enemy returns to its original slot. Reset any rotation applied
+            // during swarm attacks so the sprite faces the correct direction.
+            const targetX =
+              (enemy as any).respawnLandingX ??
+              (enemy as any).respawnTargetFormationX ??
+              (enemy as any).formationX ??
+              enemy.baseX;
+            const targetY =
+              (enemy as any).respawnTargetFormationY ??
+              (enemy as any).formationY ??
+              enemy.baseY;
+
+            try {
+              // Use the sprite helper to update baseX/baseY and force re-render
+              // IMPORTANT: set baseX to the landingX so marching aligns immediately
+              (enemy as any).updateSpritePosition?.(targetX, targetY);
+              (enemy as any).baseX = targetX;
+            } catch {
+              enemy.baseX = targetX;
+              enemy.baseY = targetY;
+              enemy.x = enemy.baseX;
+              enemy.y = enemy.baseY;
+            }
+
+            // reset rotation/velocity flags set during swarm
+            try {
+              enemy.rotation = 0;
+            } catch {
+              /* ignore */
+            }
+
+            // Ensure the enemy controller isn't still tracking this sprite as an
+            // active swarm participant. This removes any lingering trackers or
+            // attack objects that might continue updating the sprite.
+            try {
+              this.enemyAttackController.notifyEnemyKilled(enemy);
+              this.enemyAttackController.enemySwarmTracker.removeEnemy(enemy);
+            } catch {
+              /* ignore */
+            }
+
+            // Keep enemyWave ordering as-is. Formation location is controlled
+            // by row/col and baseX/baseY — reordering caused misplacements.
+
+            // Reset visual / motion state and ensure baseX is the landing X so
+            // the marching logic uses the correct starting position.
+            try {
+              enemy.rotation = 0;
+              enemy.visible = true;
+              if (typeof (enemy as any).play === "function")
+                (enemy as any).play();
+              enemy.autoUpdate = true;
+              // start settling back towards original formationX
+              (enemy as any).settleActive = true;
+              (enemy as any).settleTarget =
+                (enemy as any).respawnSettleTarget ?? (enemy as any).formationX;
+            } catch {
+              /* ignore */
+            }
+
+            // Clear respawn guard flag so future END_ATTACK_SWARM can re-trigger
+            try {
+              (enemy as any)._isRespawning = false;
+            } catch {
+              /* ignore */
+            }
+
+            enemy.enemyState = ENEMY_STATE.ALIVE_IDLE;
+          }
+        }
+      } catch {
+        /* ignore per-frame errors */
+      }
+    });
+
+    // After handling respawns, allow enemies to fire/missile updates
     this.updateEnemyMissiles(_time.deltaTime);
 
     // Update missiles (movement, collisions, cleanup)
@@ -596,275 +739,175 @@ export class MainScreen extends Container {
    * User taps the overlay (a user gesture) to focus a tiny input that opens the
    * on-screen keyboard. Input events are mapped to game key actions.
    */
-  private initKeyboardForiPad(): void {
+  private initTouchButtons(): void {
     try {
-      const isiPad =
-        /iPad|Macintosh/.test(navigator.userAgent) &&
-        (navigator as any).maxTouchPoints > 1;
-      if (!isiPad) return;
+      const isTouch =
+        "ontouchstart" in window || (navigator as any).maxTouchPoints > 0;
+      if (!isTouch) return;
 
-      this.kbInput = document.createElement("input");
-      this.kbInput.type = "text";
-      this.kbInput.setAttribute("autocorrect", "off");
-      this.kbInput.setAttribute("autocomplete", "off");
-      this.kbInput.spellcheck = false;
-      Object.assign(this.kbInput.style, {
+      // bottom bar that spans the width
+      const bar = document.createElement("div");
+      Object.assign(bar.style, {
         position: "fixed",
-        left: "12px",
-        bottom: "12px",
-        width: "1px",
-        height: "1px",
-        opacity: "0.01",
-        zIndex: "9999"
-      } as any);
-      document.body.appendChild(this.kbInput);
-
-      this.kbOverlay = document.createElement("div");
-      this.kbOverlay.innerText = "Tap to open keyboard";
-      Object.assign(this.kbOverlay.style, {
-        position: "fixed",
-        left: "50%",
-        bottom: "16px",
-        transform: "translateX(-50%)",
-        padding: "8px 14px",
-        background: "rgba(0,0,0,0.6)",
-        color: "white",
-        borderRadius: "6px",
+        left: "0",
+        bottom: "0",
+        width: "100%",
+        padding: "12px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        boxSizing: "border-box",
         zIndex: "9999",
-        fontFamily: "monospace",
-        cursor: "pointer"
+        pointerEvents: "auto",
+        background: "rgba(12,12,12,0.92)",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        borderRadius: "12px 12px 0 0",
+        boxShadow: "0 -6px 18px rgba(0,0,0,0.6)"
       } as any);
-      document.body.appendChild(this.kbOverlay);
+      document.body.appendChild(bar);
 
-      this.kbOverlay.addEventListener("click", () => {
-        try {
-          if (this.kbInput) this.kbInput.focus();
-        } catch {
-          /* ignore */
-        }
-        if (this.kbOverlay) this.kbOverlay.style.display = "none";
-      });
+      // prevent double-tap zoom on iOS by intercepting rapid touchstart events on the bar
+      let lastTap = 0;
+      bar.addEventListener(
+        "touchstart",
+        (ev: TouchEvent) => {
+          const now = Date.now();
+          if (now - lastTap <= 300) {
+            ev.preventDefault(); // block double-tap zoom
+          }
+          lastTap = now;
+        },
+        { passive: false }
+      );
 
-      // On-screen touch controls for iPad (left/right) to support held movement
-      const createTouchButton = (
-        label: string,
-        left: number,
-        bottom: number
-      ) => {
+      const leftGroup = document.createElement("div");
+      const centerGroup = document.createElement("div");
+      const rightGroup = document.createElement("div");
+      Object.assign(leftGroup.style, {
+        display: "flex",
+        gap: "12px",
+        alignItems: "center"
+      } as any);
+      Object.assign(centerGroup.style, {
+        display: "flex",
+        gap: "12px",
+        alignItems: "center"
+      } as any);
+      Object.assign(rightGroup.style, {
+        display: "flex",
+        gap: "18px",
+        alignItems: "center"
+      } as any);
+      [leftGroup, centerGroup, rightGroup].forEach((g) => bar.appendChild(g));
+
+      const makeButton = (label: string, w = 64, h = 64, opts: any = {}) => {
         const btn = document.createElement("div");
         btn.innerText = label;
+        const baseBg = opts.blue
+          ? "rgba(0,122,255,0.18)"
+          : opts.bg || "rgba(255,255,255,0.04)";
+        const border = opts.blue
+          ? "1px solid rgba(0,122,255,0.35)"
+          : "1px solid rgba(255,255,255,0.08)";
         Object.assign(btn.style, {
-          position: "fixed",
-          left: `${left}px`,
-          bottom: `${bottom}px`,
-          width: "64px",
-          height: "64px",
-          background: "rgba(0,0,0,0.3)",
+          minWidth: `${w}px`,
+          height: `${h}px`,
+          background: baseBg,
+          border: border,
           color: "white",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: "8px",
-          zIndex: "9998",
+          borderRadius: "10px",
           fontFamily: "monospace",
-          userSelect: "none"
+          fontWeight: "700",
+          fontSize: opts.fontSize || "18px",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          WebkitTapHighlightColor: "transparent",
+          touchAction: "none",
+          cursor: "pointer",
+          outline: "none",
+          opacity: opts.opacity ?? 0.98
         } as any);
-        document.body.appendChild(btn);
+        // prevent focus/selection on iOS
+        btn.setAttribute("tabindex", "-1");
+        btn.addEventListener("focus", () => btn.blur());
         return btn;
       };
 
-      const leftBtn = createTouchButton("O", 12, 12);
-      const rightBtn = createTouchButton("P", 88, 12);
-
-      const touchStartLeft = (ev: any) => {
-        ev.preventDefault?.();
-        this.leftHeld = true;
-      };
-      const touchEndLeft = (ev: any) => {
-        ev.preventDefault?.();
-        this.leftHeld = false;
-      };
-      const touchStartRight = (ev: any) => {
-        ev.preventDefault?.();
-        this.rightHeld = true;
-      };
-      const touchEndRight = (ev: any) => {
-        ev.preventDefault?.();
-        this.rightHeld = false;
-      };
-
-      leftBtn.addEventListener("touchstart", touchStartLeft, {
-        passive: false
+      // Fire on left (match movement button size for larger touch target)
+      const fireBtn = makeButton("FIRE", 88, 88, {
+        bg: "rgba(0,0,0,0.45)",
+        opacity: 0.95
       });
-      leftBtn.addEventListener("mousedown", touchStartLeft);
-      leftBtn.addEventListener("touchend", touchEndLeft);
-      leftBtn.addEventListener("touchcancel", touchEndLeft);
-      leftBtn.addEventListener("mouseup", touchEndLeft);
+      leftGroup.appendChild(fireBtn);
 
-      rightBtn.addEventListener("touchstart", touchStartRight, {
-        passive: false
-      });
-      rightBtn.addEventListener("mousedown", touchStartRight);
-      rightBtn.addEventListener("touchend", touchEndRight);
-      rightBtn.addEventListener("touchcancel", touchEndRight);
-      rightBtn.addEventListener("mouseup", touchEndRight);
+      // Credit and Start in center
+      const creditBtn = makeButton("1", 56, 56);
+      const startBtn = makeButton("S", 56, 56);
+      centerGroup.appendChild(creditBtn);
+      centerGroup.appendChild(startBtn);
 
-      // Hide/show touch buttons along with the overlay depending on portrait
-      // Keep touch buttons available even when soft keyboard is open so users can hold them.
-      const m = window.matchMedia("(orientation: portrait)");
-      const updateOverlay = () => {
-        if (!this.kbOverlay) return;
-        const vv = (window as any).visualViewport;
-        const keyboardOpen = !!vv && vv.height < window.innerHeight * 0.82;
-        const show = m.matches && !keyboardOpen;
-        this.kbOverlay.style.display = show ? "block" : "none";
-      };
-      try {
-        m.addEventListener("change", updateOverlay);
-      } catch {
-        if ((m as any).addListener) (m as any).addListener(updateOverlay);
-      }
-      window.addEventListener("resize", updateOverlay);
+      // Movement buttons on right (bigger, translucent blue)
+      const leftBtn = makeButton("O", 88, 88, { blue: true, opacity: 0.9 });
+      const rightBtn = makeButton("P", 88, 88, { blue: true, opacity: 0.9 });
+      rightGroup.appendChild(leftBtn);
+      rightGroup.appendChild(rightBtn);
 
-      const updateTouchButtonsVisibility = () => {
-        const show = m.matches; // portrait => show on-screen controls
-        leftBtn.style.display = show ? "flex" : "none";
-        rightBtn.style.display = show ? "flex" : "none";
-      };
-      try {
-        m.addEventListener("change", updateTouchButtonsVisibility);
-      } catch {
-        if ((m as any).addListener)
-          (m as any).addListener(updateTouchButtonsVisibility);
-      }
-      window.addEventListener("resize", updateOverlay);
-      if ((window as any).visualViewport) {
-        (window as any).visualViewport.addEventListener(
-          "resize",
-          updateTouchButtonsVisibility
-        );
-        (window as any).visualViewport.addEventListener(
-          "scroll",
-          updateTouchButtonsVisibility
-        );
-      }
-      updateTouchButtonsVisibility();
-
-      // Hold emulation timers: short timeout after last soft-key input to clear hold.
-      const HOLD_TIMEOUT = 220; // ms
-      const holdTimers: { left?: number; right?: number } = {};
-
-      this.kbInput.addEventListener("input", () => {
-        if (!this.kbInput) return;
-        const v = this.kbInput.value;
-        if (!v) return;
-        const ch = v.slice(-1).toLowerCase();
-
-        // Map soft-key input to game keys (short tap behaviour)
-        if (ch === "o" || ch === "a" || ch === "<") {
-          // emulate hold: set leftHeld and reset timer
-          this.leftHeld = true;
-          if (holdTimers.left) window.clearTimeout(holdTimers.left);
-          holdTimers.left = window.setTimeout(() => {
-            this.leftHeld = false;
-            holdTimers.left = undefined;
-          }, HOLD_TIMEOUT);
-        } else if (ch === "p" || ch === "d" || ch === ">") {
-          this.rightHeld = true;
-          if (holdTimers.right) window.clearTimeout(holdTimers.right);
-          holdTimers.right = window.setTimeout(() => {
-            this.rightHeld = false;
-            holdTimers.right = undefined;
-          }, HOLD_TIMEOUT);
-        } else if (ch === " " || ch === "s") {
-          this.keys["Space"] = true;
-          setTimeout(() => (this.keys["Space"] = false), 120);
-        }
-
-        // Clear so next tap is fresh
-        this.kbInput.value = "";
-      });
-
-      // When the input loses focus (keyboard dismissed) clear holds
-      this.kbInput.addEventListener("blur", () => {
-        this.leftHeld = false;
-        this.rightHeld = false;
-        if (holdTimers.left) window.clearTimeout(holdTimers.left);
-        if (holdTimers.right) window.clearTimeout(holdTimers.right);
-        holdTimers.left = undefined;
-        holdTimers.right = undefined;
-      });
-
-      // Throttled viewport sync to avoid frequent heavy canvas resizes which cause stutter
-      let lastSync = 0;
-      const SYNC_THROTTLE_MS = 100;
-      const doSyncViewportForKeyboard = () => {
-        const now = Date.now();
-        if (now - lastSync < SYNC_THROTTLE_MS) return;
-        lastSync = now;
-
-        const vv = (window as any).visualViewport;
-        const viewportWidth = Math.max(
-          224,
-          Math.round((vv?.width ?? window.innerWidth) || window.innerWidth)
-        );
-        const viewportHeight = Math.max(
-          256,
-          Math.round((vv?.height ?? window.innerHeight) || window.innerHeight)
-        );
-        const app = engine();
-        const gameAspect = this.WIDTH / this.HEIGHT;
-        let fitWidth = viewportWidth;
-        let fitHeight = viewportHeight;
-
-        if (fitWidth / fitHeight > gameAspect) {
-          fitWidth = fitHeight * gameAspect;
-        } else {
-          fitHeight = fitWidth / gameAspect;
-        }
-
-        const contentWidth = Math.round(fitWidth);
-        const contentHeight = Math.round(fitHeight);
-        const offsetX = Math.round((viewportWidth - contentWidth) / 2);
-        const offsetY = Math.round((viewportHeight - contentHeight) / 2);
-
-        try {
-          const container = document.getElementById("pixi-container");
-          if (container) {
-            container.style.position = "fixed";
-            container.style.left = "0px";
-            container.style.top = `${Math.round(vv?.offsetTop ?? 0)}px`;
-            container.style.width = `${viewportWidth}px`;
-            container.style.height = `${viewportHeight}px`;
+      const addPointerHandlers = (
+        el: HTMLElement,
+        onDown: () => void,
+        onUp?: () => void
+      ) => {
+        el.addEventListener("pointerdown", (ev: any) => {
+          ev.preventDefault?.();
+          (ev.target as HTMLElement).setPointerCapture?.(ev.pointerId);
+          onDown();
+        });
+        el.addEventListener("pointerup", (ev: any) => {
+          ev.preventDefault?.();
+          try {
+            (ev.target as HTMLElement).releasePointerCapture?.(ev.pointerId);
+          } catch {
+            /* ignore */
           }
-
-          app.renderer.canvas.style.position = "absolute";
-          app.renderer.canvas.style.left = `${offsetX}px`;
-          app.renderer.canvas.style.top = `${offsetY}px`;
-          app.renderer.canvas.style.width = `${contentWidth}px`;
-          app.renderer.canvas.style.height = `${contentHeight}px`;
-          app.renderer.resize(contentWidth, contentHeight);
-          app.navigation.resize(contentWidth, contentHeight);
-        } catch {
-          /* ignore */
-        }
-
-        updateOverlay();
+          if (onUp) onUp();
+        });
+        el.addEventListener("pointercancel", () => {
+          if (onUp) onUp();
+        });
+        el.addEventListener("lostpointercapture", () => {
+          if (onUp) onUp();
+        });
       };
 
-      if ((window as any).visualViewport) {
-        (window as any).visualViewport.addEventListener(
-          "resize",
-          doSyncViewportForKeyboard
-        );
-        (window as any).visualViewport.addEventListener(
-          "scroll",
-          doSyncViewportForKeyboard
-        );
-      }
-      // initial sync
-      doSyncViewportForKeyboard();
-      updateOverlay();
+      addPointerHandlers(
+        leftBtn,
+        () => (this.leftHeld = true),
+        () => (this.leftHeld = false)
+      );
+      addPointerHandlers(
+        rightBtn,
+        () => (this.rightHeld = true),
+        () => (this.rightHeld = false)
+      );
+      addPointerHandlers(
+        creditBtn,
+        () => (this.keys["Digit1"] = true),
+        () => (this.keys["Digit1"] = false)
+      );
+      addPointerHandlers(
+        startBtn,
+        () => (this.keys["KeyS"] = true),
+        () => (this.keys["KeyS"] = false)
+      );
+      addPointerHandlers(
+        fireBtn,
+        () => (this.keys["Space"] = true),
+        () => (this.keys["Space"] = false)
+      );
     } catch {
       /* ignore */
     }
@@ -1015,6 +1058,22 @@ export class MainScreen extends Container {
     this.enemyWave.forEach((enemy) => {
       // Don't march if dead or swarming
       if (enemy.enemyState != ENEMY_STATE.ALIVE_IDLE) {
+        // But still allow settle corrections when not marching
+        if ((enemy as any).settleActive) {
+          const settleTarget =
+            (enemy as any).settleTarget ??
+            (enemy as any).respawnSettleTarget ??
+            (enemy as any).respawnTargetFormationX;
+          if (settleTarget !== undefined) {
+            const t = 0.06 * (_time.deltaTime || 1);
+            enemy.baseX += (settleTarget - enemy.baseX) * t;
+            if (Math.abs(settleTarget - enemy.baseX) < 0.5) {
+              enemy.baseX = settleTarget;
+              (enemy as any).settleActive = false;
+            }
+            enemy.x = enemy.baseX;
+          }
+        }
         return;
       }
       if (this.dirToggle) {
@@ -1028,6 +1087,23 @@ export class MainScreen extends Container {
           isToggle = true;
         }
       }
+
+      // apply any settle correction while marching
+      if ((enemy as any).settleActive) {
+        const settleTarget =
+          (enemy as any).settleTarget ??
+          (enemy as any).respawnSettleTarget ??
+          (enemy as any).respawnTargetFormationX;
+        if (settleTarget !== undefined) {
+          const t = 0.04 * (_time.deltaTime || 1);
+          enemy.baseX += (settleTarget - enemy.baseX) * t;
+          if (Math.abs(settleTarget - enemy.baseX) < 0.5) {
+            enemy.baseX = settleTarget;
+            (enemy as any).settleActive = false;
+          }
+        }
+      }
+
       enemy.visible = false;
       enemy.visible = true;
       enemy.x = enemy.baseX;
